@@ -9,8 +9,8 @@ from functools import partial
 from typing import Optional
 
 from .config import request_id_var
-from .utils import run_async
-from .database import db
+from .utils import run_async, get_text_diff
+# from .database import db # No longer needed
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +47,7 @@ def handle_save_example(prompt_id: int, input_text: str, output_text: str, criti
             st.warning("Input and output fields cannot be empty.")
             return
 
-        db.add_example(prompt_id, input_text, output_text, critique)
+        st.session_state.db.add_example(prompt_id, input_text, output_text, critique)
         
         toast_message = "✅ Example saved!"
         if critique:
@@ -75,26 +75,47 @@ def handle_delete_lineage(lineage_id):
 async def generate_and_save_prompt(task):
     """Asynchronously generates a new prompt and saves it to the database."""
     try:
+        # Clear any existing test state before creating a new prompt
+        st.session_state.testing_prompt_id = None
+        st.session_state.test_chat_history = []
+        
         new_prompt = await st.session_state.prompt_generator.generate_initial_prompt(
             task, st.session_state.api_client
         )
         st.session_state.db.save_prompt(new_prompt)
         st.toast("✅ New prompt created!", icon="🎉")
+        st.rerun() # Refresh the page to show the new prompt
     except Exception as e:
         st.toast(f"❌ Generation failed: {e}", icon="🔥")
         logger.error(f"Failed to generate and save prompt for task: {task}", exc_info=True)
 
 async def improve_and_save_prompt(prompt_id, task_desc):
-    """Asynchronously improves a prompt and saves the new version."""
+    """
+    Asynchronously improves a prompt, saves the new version, 
+    and returns the new prompt data.
+    """
     try:
+        original_prompt = st.session_state.db.get_prompt(prompt_id)
+        if not original_prompt:
+            st.error(f"Could not find original prompt with ID {prompt_id}")
+            return None
+
         improved_prompt = await st.session_state.prompt_generator.improve_prompt(
             prompt_id, task_desc, st.session_state.api_client, st.session_state.db
         )
-        st.session_state.db.save_prompt(improved_prompt)
+        # save_prompt now returns the saved object
+        saved_prompt = st.session_state.db.save_prompt(improved_prompt)
+
+        # Generate and store the diff
+        diff_html = get_text_diff(original_prompt['prompt'], saved_prompt['prompt'])
+        st.session_state.prompt_diff = diff_html
+
         st.toast("✅ Prompt improved and new version created!", icon="🎉")
+        return saved_prompt
     except Exception as e:
         st.toast(f"❌ Improvement failed: {e}", icon="🔥")
         logger.error(f"Failed to improve and save prompt for id: {prompt_id}", exc_info=True)
+        return None
 
 async def handle_correction_and_improve(prompt_id: int, user_input: str, desired_output: str, critique: Optional[str]):
     """Saves a corrected example and immediately triggers the prompt improvement process."""
@@ -118,8 +139,29 @@ async def handle_correction_and_improve(prompt_id: int, user_input: str, desired
         
         task_description += "Improve the prompt based on this new feedback."
 
-        # This function saves the new prompt version and reruns the app
-        await improve_and_save_prompt(prompt_id, task_description)
+        bad_output = st.session_state.get('correction_data', {}).get('bad_output', 'Not available')
+        
+        correction_details = {
+            "user_input": user_input,
+            "bad_output": bad_output,
+            "desired_output": desired_output,
+            "critique": critique,
+        }
+        
+        # 1. Save the correction data to the database
+        st.session_state.db.add_correction(prompt_id, correction_details)
+
+        # 2. Trigger the improvement, passing the structured dictionary
+        new_prompt = await improve_and_save_prompt(prompt_id, correction_details)
+
+        if new_prompt:
+            # Store the new prompt's ID to be used by the UI
+            st.session_state.testing_prompt_id = new_prompt['id']
+            # Reset state for the new test session
+            st.session_state.test_chat_history = []
+            st.session_state.correction_mode = False
+            st.session_state.correction_data = None
+            st.toast("✨ New version created and loaded! Please test again.", icon="🚀")
 
     except Exception as e:
         logger.error(f"Correction and improvement process failed: {e}", exc_info=True)

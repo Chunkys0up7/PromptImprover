@@ -43,7 +43,7 @@ setup_logging()
 APP_CONFIG = {
     "api_token": os.getenv("API_TOKEN"),
     "api_base_url": os.getenv("API_BASE_URL", "https://api.perplexity.ai"),
-    "default_model": os.getenv("DEFAULT_MODEL", "llama-3-sonar-large-32k-online"),
+    "default_model": os.getenv("DEFAULT_MODEL", "sonar-pro"),
     "connect_timeout": float(os.getenv("CONNECT_TIMEOUT", 10)),
     "read_timeout": float(os.getenv("READ_TIMEOUT", 30)),
     "write_timeout": float(os.getenv("WRITE_TIMEOUT", 30)),
@@ -52,12 +52,12 @@ APP_CONFIG = {
 
 # --- Centralized Model Definitions ---
 SUPPORTED_MODELS: Dict[str, str] = {
-    'llama-3-sonar-large-32k-online': 'Sonar Large Online',
-    'llama-3-sonar-large-32k-chat': 'Sonar Large Chat',
-    'llama-3-sonar-small-32k-online': 'Sonar Small Online',
-    'llama-3-sonar-small-32k-chat': 'Sonar Small Chat',
-    'mistral-7b-instruct': 'Mistral 7B Instruct',
-    'sonar-pro': 'Sonar Pro',
+    'sonar-pro': 'Sonar Pro (Advanced Search)',
+    'sonar': 'Sonar (Lightweight Search)',
+    'sonar-deep-research': 'Sonar Deep Research',
+    'sonar-reasoning-pro': 'Sonar Reasoning Pro',
+    'sonar-reasoning': 'Sonar Reasoning',
+    'r1-1776': 'DeepSeek R1',
 }
 
 # --- Error Messages ---
@@ -76,7 +76,7 @@ def validate_and_load_config() -> Dict[str, Any]:
     """
     api_token = os.getenv('API_TOKEN')
     api_base_url = os.getenv('API_BASE_URL', 'https://api.perplexity.ai')
-    default_model = os.getenv('DEFAULT_MODEL', next(iter(SUPPORTED_MODELS)))
+    default_model = os.getenv('DEFAULT_MODEL', 'sonar-pro')
 
     if not api_token:
         raise ValueError(ERROR_MESSAGES['api_token_missing'])

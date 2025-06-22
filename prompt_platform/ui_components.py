@@ -109,8 +109,15 @@ def close_test_dialog():
 def test_prompt_dialog(prompt_id):
     """Renders the 'Test Prompt' dialog and handles the chat interaction."""
     prompt_data = st.session_state.db.get_prompt(prompt_id)
-    st.title(f"Testing: {prompt_data.get('task', 'Untitled')}")
+    st.title(f"Testing: {prompt_data.get('task', 'Untitled')} (v{prompt_data.get('version', 1)})")
     st.button("Close", on_click=close_test_dialog, use_container_width=True)
+
+    # Display the prompt diff if it exists in the session state
+    if 'prompt_diff' in st.session_state and st.session_state.prompt_diff:
+        with st.expander("Show Prompt Improvements", expanded=True):
+            st.markdown(st.session_state.prompt_diff, unsafe_allow_html=True)
+        # Clear the diff from session state after displaying it
+        del st.session_state.prompt_diff
 
     with st.expander("Show Current Prompt"):
         st.code(prompt_data['prompt'], language='text')
@@ -133,14 +140,16 @@ def test_prompt_dialog(prompt_id):
             if not desired_output and not critique:
                 st.warning("Please provide either a desired output, a critique, or both.")
             else:
-                run_async(handle_correction_and_improve(
-                    prompt_id, 
-                    correction_data["user_input"], 
-                    desired_output,
-                    critique
-                ))
-                # The async action will handle closing the dialog via rerun
-                st.spinner("Saving and improving...")
+                with st.spinner("Saving correction and improving prompt..."):
+                    run_async(handle_correction_and_improve(
+                        prompt_id, 
+                        correction_data["user_input"], 
+                        desired_output,
+                        critique
+                    ))
+                # The session state is now updated with the new prompt ID.
+                # Rerunning will automatically reopen the dialog with the new prompt.
+                st.rerun()
 
     # --- Standard Chat UI ---
     else:
@@ -155,12 +164,18 @@ def test_prompt_dialog(prompt_id):
             with st.spinner("🧠 Thinking..."):
                 try:
                     last_user_input = st.session_state.test_chat_history[-1]["content"]
-                    final_prompt = prompt_data['prompt'].format(input=last_user_input)
-                    messages = [{"role": "user", "content": final_prompt}]
                     
-                    with st.chat_message("assistant"):
-                        response_stream = st.session_state.api_client.stream_chat_completion(messages)
-                        assistant_response = st.write_stream(response_stream)
+                    # Fix placeholder on the fly for backwards compatibility.
+                    # We only replace the first instance to avoid corrupting examples.
+                    prompt_template = prompt_data['prompt'].replace('{{input}}', '{input}', 1)
+                    final_prompt = prompt_template.format(input=last_user_input)
+
+                    messages = [
+                        {"role": "system", "content": "You are a helpful AI assistant. Execute the user's instruction."},
+                        {"role": "user", "content": final_prompt}
+                    ]
+                    response_generator = st.session_state.api_client.stream_chat_completion(messages)
+                    assistant_response = st.write_stream(response_generator)
 
                     st.session_state.test_chat_history.append({"role": "assistant", "content": assistant_response})
                     st.rerun()

@@ -25,15 +25,14 @@ class PromptGenerator:
     """
     Handles prompt generation, improvement, and optimization logic using DSPy.
     """
-    def __init__(self):
+    def __init__(self, db: 'PromptDB'):
         try:
-            self.dspy_lm = get_dspy_lm()
-            self.is_configured = True
+            self.lm = get_dspy_lm()
+            dspy.configure(lm=self.lm)
             logger.info("PromptGenerator configured successfully with DSPy.")
-        except ValueError as e:
-            self.dspy_lm = None
-            self.is_configured = False
-            logger.warning(f"DSPy configuration failed: {e}. Optimization will be disabled.")
+        except Exception as e:
+            logger.error(f"Failed to configure DSPy: {e}", exc_info=True)
+            self.lm = None
 
     def _create_prompt_data(self, task: str, prompt: str, parent_id: str = None, lineage_id: str = None, version: int = 1, training_data: list = []) -> dict:
         """Creates a structured dictionary for a new prompt, validating with Pydantic."""
@@ -58,34 +57,55 @@ class PromptGenerator:
             logger.warning("API call failed, returning fallback prompt.")
             return fallback_prompt
 
+    @lru_cache(maxsize=128)
     async def generate_initial_prompt(self, task: str, api_client: 'APIClient') -> dict:
         """Creates an initial prompt by calling the API with a meta-prompt."""
-        system_message = "You are an expert prompt engineer. Create a detailed, effective prompt template for the given task. The prompt must include the placeholder '{{input}}' for user input."
-        user_message = f"Task: Create a prompt for an AI assistant that can {task}."
+        system_message = "You are an expert prompt engineer. Your task is to write a high-quality prompt template that will be used to instruct a powerful AI assistant."
+        user_message = f"The AI assistant needs to perform the following task: **{task}**. Your job is to write the prompt template that will be given to this assistant. The template should contain a placeholder, '{{input}}', which will be replaced with the user's specific request at runtime. The template should directly instruct the AI to perform the task."
         messages = [{"role": "system", "content": system_message}, {"role": "user", "content": user_message}]
         fallback_prompt = f"Act as an expert on {task}. Respond to the following: {{input}}"
         
         prompt_text = await self._generate_with_fallback(api_client, messages, fallback_prompt)
         return self._create_prompt_data(task=task, prompt=prompt_text)
 
-    async def improve_prompt(self, prompt_id: str, task_description: str, api_client: 'APIClient', db: 'PromptDB') -> dict:
-        """Improves an existing prompt and creates a new version in the same lineage."""
-        logger.info(f"Improving prompt {prompt_id} with task: '{task_description}'")
-
+    async def improve_prompt(self, prompt_id: int, task_description: dict, api_client: 'APIClient', db: 'PromptDB') -> dict:
+        """Improves an existing prompt based on a textual description."""
         original_prompt_data = db.get_prompt(prompt_id)
+
         if not original_prompt_data:
             raise ValueError(f"Original prompt with ID {prompt_id} not found.")
 
-        system_message = "You are a world-class expert in prompt engineering. Refine the following prompt based on the user's instruction. Output ONLY the new prompt text."
+        # Ensure the prompt uses the correct placeholder before improving it.
+        # We only replace the first instance to avoid corrupting examples.
+        prompt_text_to_improve = original_prompt_data['prompt'].replace('{{input}}', '{input}', 1)
+
+        system_message = "You are an expert prompt engineer. Your task is to improve a prompt based on user feedback. You will be given a critique of a prompt's performance and the prompt itself. Your job is to rewrite the prompt to be more effective. The final revised prompt must include the placeholder '{input}' for the user's runtime input. IMPORTANT: Do not use the placeholder in examples; describe the input instead. Provide ONLY the improved prompt text as your response, without any extra commentary or formatting."
+        
+        user_message = f"""The current prompt is:
+---
+{prompt_text_to_improve}
+---
+
+It received the following critique:
+- User Input: '{task_description.get('user_input')}'
+- Actual (Bad) Output: '{task_description.get('bad_output')}'
+- Desired Output: '{task_description.get('desired_output')}'
+- Critique: '{task_description.get('critique')}'
+
+Please provide the improved prompt.
+"""
+
         messages = [
             {"role": "system", "content": system_message},
-            {"role": "user", "content": f"Refine this prompt:\n---\n{original_prompt_data['prompt']}\n---\n\nInstruction: '{task_description}'. Output only the new prompt."}
+            {"role": "user", "content": user_message}
         ]
+        
+        logger.info(f"Improving prompt {original_prompt_data['id']} with task: '{task_description}'")
         
         improved_text = await api_client.get_chat_completion(messages)
         
         return self._create_prompt_data(
-            task=task_description,
+            task=original_prompt_data['task'],
             prompt=improved_text,
             parent_id=original_prompt_data['id'],
             lineage_id=original_prompt_data['lineage_id'],
@@ -96,7 +116,7 @@ class PromptGenerator:
     async def optimize_prompt(self, existing_prompt_data: dict) -> dict:
         """Optimizes a prompt using DSPy and its training data."""
         logger.info(f"Starting DSPy optimization for prompt ID: {existing_prompt_data.get('id')}")
-        if not self.is_configured:
+        if not self.lm:
             raise ValueError("DSPy is not configured.")
 
         training_data_str = existing_prompt_data.get("training_data", "[]")
@@ -118,13 +138,10 @@ class PromptGenerator:
         new_prompt_text = optimized_module.generate_answer.raw_instructions
         
         return self._create_prompt_data(
-            task=f"Optimized: {existing_prompt_data['task']}",
+            task=existing_prompt_data['task'],
             prompt=new_prompt_text,
             parent_id=existing_prompt_data['id'],
             lineage_id=existing_prompt_data['lineage_id'],
             version=existing_prompt_data.get('version', 0) + 1,
             training_data=training_data
-        )
-
-# Singleton instance
-prompt_generator = PromptGenerator() 
+        ) 

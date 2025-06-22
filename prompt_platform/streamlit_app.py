@@ -12,9 +12,10 @@ import uuid
 import pandas as pd
 
 from prompt_platform.config import request_id_var
-from prompt_platform.database import db
-from prompt_platform.prompt_generator import prompt_generator
-from prompt_platform.version_manager import version_manager
+# Import classes instead of singleton instances
+from prompt_platform.database import PromptDB
+from prompt_platform.prompt_generator import PromptGenerator
+from prompt_platform.version_manager import VersionManager
 from prompt_platform.api_client import APIClient, APIConfigurationError
 from prompt_platform.ui_components import main_manager_view, draw_sidebar
 from prompt_platform.dashboard import render_dashboard
@@ -32,18 +33,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- Service Initialization ---
-@st.cache_resource
-def get_api_client():
-    try:
-        return APIClient()
-    except APIConfigurationError as e:
-        st.error(f"Fatal API Client Error: {e}. Check your .env file.")
-        st.stop()
-
-# --- Async Utilities ---
-# This has been moved to utils.py to avoid circular imports.
-
 # --- Data Loading ---
 @st.cache_data
 def load_all_prompts():
@@ -54,15 +43,23 @@ def load_all_prompts():
 # --- Main App ---
 def main():
     """Initializes services and renders the main application layout."""
-    # Initialize services and store them in session state
-    st.session_state.api_client = get_api_client()
-    st.session_state.db = db
-    st.session_state.prompt_generator = prompt_generator
-    st.session_state.version_manager = version_manager
+    # Initialize services and store them in session state ONCE
+    if 'db' not in st.session_state:
+        logger.info("Initializing services for the first time for this session.")
+        try:
+            st.session_state.db = PromptDB()
+            st.session_state.api_client = APIClient()
+            st.session_state.prompt_generator = PromptGenerator(st.session_state.db)
+            st.session_state.version_manager = VersionManager(st.session_state.db)
+        except Exception as e:
+            st.error(f"Fatal Error: Could not initialize services. {e}")
+            logger.critical(f"Service initialization failed: {e}", exc_info=True)
+            st.stop()
+
     st.session_state.request_id_var = request_id_var
     st.session_state.uuid = uuid
 
-    # Initialize session state variables
+    # Initialize other session state variables
     if "test_chat_history" not in st.session_state:
         st.session_state.test_chat_history = []
     if "test_prompt_id" not in st.session_state:

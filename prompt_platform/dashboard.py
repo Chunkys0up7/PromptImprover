@@ -1,16 +1,16 @@
 import streamlit as st
 import pandas as pd
-from .database import db
+# from .database import db # No longer needed
 
 @st.cache_data
 def fetch_kpi_metrics():
     """Fetches key performance indicators from the database."""
-    return db.get_kpi_metrics()
+    return st.session_state.db.get_kpi_metrics()
 
 @st.cache_data
 def fetch_prompt_trends():
     """Fetches prompt creation trend data and prepares it for charting."""
-    data = db.count_prompts_by_date()
+    data = st.session_state.db.count_prompts_by_date()
     if not data:
         return pd.DataFrame(columns=['date', 'count']).set_index('date')
     df = pd.DataFrame(data)
@@ -20,7 +20,7 @@ def fetch_prompt_trends():
 @st.cache_data
 def fetch_example_growth():
     """Fetches training example growth data and prepares it for charting."""
-    data = db.count_examples_by_date()
+    data = st.session_state.db.count_examples_by_date()
     if not data:
         return pd.DataFrame(columns=['date', 'examples']).set_index('date')
     df = pd.DataFrame(data)
@@ -32,7 +32,7 @@ def fetch_example_growth():
 @st.cache_data
 def fetch_version_distribution():
     """Fetches version distribution data and prepares it for charting."""
-    data = db.count_versions_per_lineage()
+    data = st.session_state.db.count_versions_per_lineage()
     if not data:
         return pd.DataFrame(columns=['lineage_id', 'versions']).set_index('lineage_id')
     return pd.DataFrame(data).set_index('lineage_id')

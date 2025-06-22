@@ -7,7 +7,7 @@ Prompt Version Manager (in-memory)
 import time
 from typing import List, Dict, Any, Optional
 import logging
-from .database import db
+# from .database import db # No longer needed, db is injected
 import streamlit as st
 
 logger = logging.getLogger(__name__)
@@ -18,6 +18,9 @@ class VersionManager:
     to retrieve and format prompt lineage.
     """
     
+    def __init__(self, db):
+        self.db = db
+
     @st.cache_data
     def get_lineage(_self, lineage_id: str) -> List[Dict[str, Any]]:
         """
@@ -25,7 +28,7 @@ class VersionManager:
         This operation is cached to prevent redundant database queries.
         """
         logger.info(f"Fetching lineage for ID: {lineage_id} from database.")
-        return db.get_prompts_by_lineage(lineage_id)
+        return _self.db.get_prompts_by_lineage(lineage_id)
 
     def format_lineage_table(self, lineage_prompts: list) -> str:
         """Formats a list of prompt versions into a Markdown table."""
@@ -55,6 +58,3 @@ class VersionManager:
             table += "| " + " | ".join(row) + " |\n"
             
         return table
-
-# --- Singleton Instance ---
-version_manager = VersionManager()
