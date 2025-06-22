@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# venv
+.venv/
+venv/
+venv.bak/
+.vscode/
+
+# State
+session_state.json 

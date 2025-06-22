@@ -1,0 +1,97 @@
+"""
+Main Streamlit application file for the Prompt Platform.
+
+This file is responsible for:
+- Initializing services and session state.
+- Orchestrating the UI by calling components from other modules.
+"""
+import streamlit as st
+import asyncio
+import logging
+import uuid
+import pandas as pd
+
+from prompt_platform.config import request_id_var
+from prompt_platform.database import db
+from prompt_platform.prompt_generator import prompt_generator
+from prompt_platform.version_manager import version_manager
+from prompt_platform.api_client import APIClient, APIConfigurationError
+from prompt_platform.ui_components import main_manager_view, draw_sidebar
+from prompt_platform.dashboard import render_dashboard
+
+# --- Page & Logging Setup ---
+st.set_page_config(page_title="Prompt Platform", layout="wide", initial_sidebar_state="expanded")
+logger = logging.getLogger(__name__)
+
+# --- CSS ---
+st.markdown("""
+<style>
+.main-header { font-size: 2.5rem; font-weight: 700; color: #1e3a8a; text-align: center; margin-bottom: 2rem; background: linear-gradient(90deg, #3b82f6, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.stButton > button { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 0.5rem; padding: 0.75rem 1.5rem; font-weight: 600; transition: all 0.3s ease; }
+.stButton > button:hover { transform: translateY(-2px); box-shadow: 0 8px 15px rgba(102, 126, 234, 0.4); }
+</style>
+""", unsafe_allow_html=True)
+
+# --- Service Initialization ---
+@st.cache_resource
+def get_api_client():
+    try:
+        return APIClient()
+    except APIConfigurationError as e:
+        st.error(f"Fatal API Client Error: {e}. Check your .env file.")
+        st.stop()
+
+# --- Async Utilities ---
+# This has been moved to utils.py to avoid circular imports.
+
+# --- Data Loading ---
+@st.cache_data
+def load_all_prompts():
+    """Cached function to fetch all prompts from the database."""
+    logger.info("Cache miss: Loading all prompts from the database.")
+    return st.session_state.db.get_all_prompts()
+
+# --- Main App ---
+def main():
+    """Initializes services and renders the main application layout."""
+    # Initialize services and store them in session state
+    st.session_state.api_client = get_api_client()
+    st.session_state.db = db
+    st.session_state.prompt_generator = prompt_generator
+    st.session_state.version_manager = version_manager
+    st.session_state.request_id_var = request_id_var
+    st.session_state.uuid = uuid
+
+    # Initialize session state variables
+    if "test_chat_history" not in st.session_state:
+        st.session_state.test_chat_history = []
+    if "test_prompt_id" not in st.session_state:
+        st.session_state.test_prompt_id = None
+    if "testing_prompt_id" not in st.session_state:
+        st.session_state.testing_prompt_id = None
+
+    # If a test is active, open the dialog immediately
+    if st.session_state.testing_prompt_id:
+        # We need to import here to avoid a circular dependency
+        from prompt_platform.ui_components import test_prompt_dialog
+        test_prompt_dialog(st.session_state.testing_prompt_id)
+
+    # Draw UI
+    draw_sidebar()
+    st.markdown("<h1 class='main-header'>✨ Prompt Platform</h1>", unsafe_allow_html=True)
+    
+    tab1, tab2 = st.tabs(["Manager", "Dashboard"])
+
+    with tab1:
+        st.subheader("Prompt & Version Manager")
+        if st.button("🔄 Refresh Prompts"):
+            st.cache_data.clear()
+            st.rerun()
+        prompts = load_all_prompts()
+        main_manager_view(prompts)
+
+    with tab2:
+        render_dashboard()
+
+if __name__ == "__main__":
+    main() 
