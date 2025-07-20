@@ -91,7 +91,7 @@ def main():
         st.subheader("Generate New Prompt")
         
         # Display improvement results if available
-        display_improvement_results()
+        display_improvement_results("generate")
         
         # Generate prompt form with more space
         with st.container():
@@ -239,7 +239,7 @@ def main():
         st.subheader("Manage Existing Prompts")
         
         # Display improvement results if available
-        display_improvement_results()
+        display_improvement_results("manage")
         
         if st.button("🔄 Refresh Prompts", use_container_width=True):
             st.cache_data.clear()

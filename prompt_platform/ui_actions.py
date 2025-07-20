@@ -175,8 +175,8 @@ def _get_improvement_methodology(task_desc):
         methodology += "**Note:** For optimization with training data, we use DSPy framework for few-shot learning."
         return methodology
 
-def display_improvement_results():
-    """Displays the results of the last improvement with methodology explanation."""
+def display_improvement_results(context="default"):
+    """Display the results of the latest prompt improvement."""
     if 'last_improvement' not in st.session_state:
         return
     
@@ -239,7 +239,7 @@ def display_improvement_results():
         st.markdown("---")
         
         # Add a button to clear the improvement display
-        if st.button("✅ Acknowledge & Continue", key=f"acknowledge_improvement_{id(improvement)}", use_container_width=True):
+        if st.button("✅ Acknowledge & Continue", key=f"acknowledge_improvement_{id(improvement)}_{context}", use_container_width=True):
             del st.session_state.last_improvement
             st.rerun()
 
