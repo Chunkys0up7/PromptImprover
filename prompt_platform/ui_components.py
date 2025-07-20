@@ -76,20 +76,32 @@ def improve_prompt_dialog(prompt_id):
         return
 
     task_desc = sanitize_text(st.text_area("Improvement instruction:", height=100))
-    if st.button("Generate Improvement"):
-        if task_desc:
-            with st.status("🔄 Improving prompt...", expanded=True) as status:
-                status.write("📝 Analyzing improvement request...")
-                status.write("🧠 Generating enhanced prompt...")
-                status.write("💾 Saving new version...")
-                
-                run_async(improve_and_save_prompt(prompt_id, task_desc))
-                
-                status.update(label="✅ Improvement complete! Check the results below.", state="complete")
-                st.success("🎉 Prompt improved successfully! The results will be displayed on the main page.")
-                st.rerun() # Close dialog and refresh main page
-        else:
-            st.warning("Please provide an improvement instruction.")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        if st.button("Generate Improvement", use_container_width=True):
+            if task_desc:
+                with st.status("🔄 Improving prompt...", expanded=True) as status:
+                    status.write("📝 Analyzing improvement request...")
+                    status.write("🧠 Generating enhanced prompt...")
+                    status.write("💾 Saving new version...")
+                    
+                    run_async(improve_and_save_prompt(prompt_id, task_desc))
+                    
+                    status.update(label="✅ Improvement complete! Check the results below.", state="complete")
+                    st.success("🎉 Prompt improved successfully! The results will be displayed on the main page.")
+                    # Clear the improving state to close dialog
+                    st.session_state.improving_prompt_id = None
+                    st.rerun() # Close dialog and refresh main page
+            else:
+                st.warning("Please provide an improvement instruction.")
+    
+    with col2:
+        if st.button("❌ Cancel", use_container_width=True):
+            # Clear the improving state to close dialog
+            st.session_state.improving_prompt_id = None
+            st.rerun()
 
 @st.dialog("✍️ Correct AI Output")
 def correction_dialog(prompt_id, user_input, actual_output):
