@@ -35,6 +35,93 @@ st.markdown("""
 .main-header { font-size: 2.5rem; font-weight: 700; color: #1e3a8a; text-align: center; margin-bottom: 2rem; background: linear-gradient(90deg, #3b82f6, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
 .stButton > button { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 0.5rem; padding: 0.75rem 1.5rem; font-weight: 600; transition: all 0.3s ease; }
 .stButton > button:hover { transform: translateY(-2px); box-shadow: 0 8px 15px rgba(102, 126, 234, 0.4); }
+
+/* Enhanced button styling for manage prompts page */
+.prompt-actions { margin: 1rem 0; }
+.prompt-actions .stButton > button { 
+    margin: 0.25rem 0; 
+    font-size: 0.9rem; 
+    min-height: 2.5rem; 
+    border-radius: 0.375rem; 
+    transition: all 0.2s ease; 
+}
+
+/* Primary action buttons */
+.prompt-actions .stButton > button[data-testid*="test_"],
+.prompt-actions .stButton > button[data-testid*="improve_"] {
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+    border: 2px solid #3b82f6;
+    font-weight: 700;
+}
+
+.prompt-actions .stButton > button[data-testid*="test_"]:hover,
+.prompt-actions .stButton > button[data-testid*="improve_"]:hover {
+    background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+}
+
+/* Secondary action buttons */
+.prompt-actions .stButton > button[data-testid*="optimize_"],
+.prompt-actions .stButton > button[data-testid*="lineage_"],
+.prompt-actions .stButton > button[data-testid*="commit_"] {
+    background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+    border: 2px solid #6b7280;
+    font-weight: 600;
+}
+
+.prompt-actions .stButton > button[data-testid*="optimize_"]:hover,
+.prompt-actions .stButton > button[data-testid*="lineage_"]:hover,
+.prompt-actions .stButton > button[data-testid*="commit_"]:hover {
+    background: linear-gradient(135deg, #4b5563 0%, #374151 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(107, 114, 128, 0.4);
+}
+
+/* Disabled buttons */
+.prompt-actions .stButton > button:disabled {
+    background: linear-gradient(135deg, #d1d5db 0%, #9ca3af 100%) !important;
+    border-color: #d1d5db !important;
+    color: #6b7280 !important;
+    cursor: not-allowed;
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+/* Destructive action button */
+.prompt-actions .stButton > button[data-testid*="delete_"] {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    border: 2px solid #ef4444;
+    font-weight: 600;
+    color: white;
+}
+
+.prompt-actions .stButton > button[data-testid*="delete_"]:hover {
+    background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+}
+
+/* Visual separator styling */
+.prompt-separator { 
+    border-top: 2px solid #e5e7eb; 
+    margin: 1rem 0; 
+    opacity: 0.6; 
+}
+
+/* Container styling for better visual grouping */
+.prompt-container { 
+    border: 1px solid #e5e7eb; 
+    border-radius: 0.75rem; 
+    padding: 1.5rem; 
+    margin: 1rem 0; 
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Button group spacing */
+.button-group { margin: 0.5rem 0; }
+.button-group .stButton { margin: 0.25rem; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -78,14 +165,14 @@ def main():
         from prompt_platform.ui_components import test_prompt_dialog
         test_prompt_dialog(st.session_state.testing_prompt_id)
 
-    # If an improvement is active, open the dialog immediately
-    if hasattr(st.session_state, 'improving_prompt_id') and st.session_state.improving_prompt_id:
+    # If an improvement is active, open the dialog immediately (only if no test dialog)
+    elif hasattr(st.session_state, 'improving_prompt_id') and st.session_state.improving_prompt_id:
         # We need to import here to avoid a circular dependency
         from prompt_platform.ui_components import improve_prompt_dialog
         improve_prompt_dialog(st.session_state.improving_prompt_id)
 
-    # If viewing lineage is active, open the dialog immediately
-    if hasattr(st.session_state, 'viewing_lineage_id') and st.session_state.viewing_lineage_id:
+    # If viewing lineage is active, open the dialog immediately (only if no other dialogs)
+    elif hasattr(st.session_state, 'viewing_lineage_id') and st.session_state.viewing_lineage_id:
         # We need to import here to avoid a circular dependency
         from prompt_platform.ui_components import view_lineage_dialog
         view_lineage_dialog(st.session_state.viewing_lineage_id)

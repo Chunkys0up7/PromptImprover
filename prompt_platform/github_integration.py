@@ -75,9 +75,12 @@ class GitHubIntegration:
             g = Github(self.github_token)
             repository = g.get_repo(f"{owner}/{repo}")
             
+            # Use the repository's default branch
+            branch = repository.default_branch
+            
             # Check if prompts folder exists
             try:
-                repository.get_contents("prompts")
+                repository.get_contents("prompts", ref=branch)
                 logger.info("Prompts folder already exists")
                 return True
             except:
@@ -85,7 +88,8 @@ class GitHubIntegration:
                 repository.create_file(
                     path="prompts/.gitkeep",
                     message="Create prompts folder for prompt management",
-                    content="# This file ensures the prompts folder is tracked by git\n# Prompts will be stored here as markdown files"
+                    content="# This file ensures the prompts folder is tracked by git\n# Prompts will be stored here as markdown files",
+                    branch=branch
                 )
                 logger.info("Created prompts folder")
                 return True
@@ -156,7 +160,7 @@ class GitHubIntegration:
     def commit_prompt_to_github(self, prompt_data: Dict[str, Any], 
                                owner: Optional[str] = None, 
                                repo: Optional[str] = None,
-                               branch: str = "main") -> Dict[str, Any]:
+                               branch: Optional[str] = None) -> Dict[str, Any]:
         """Commit a prompt to GitHub repository."""
         if not self.is_configured():
             return {
@@ -177,6 +181,11 @@ class GitHubIntegration:
             
             # Get repository
             repository = g.get_repo(f"{owner}/{repo}")
+            
+            # Detect default branch if not provided
+            if not branch:
+                branch = repository.default_branch
+                logger.info(f"Using default branch: {branch}")
             
             # Format the prompt content
             content = self.format_prompt_for_github(prompt_data)

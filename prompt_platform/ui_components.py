@@ -325,78 +325,148 @@ def main_manager_view(prompts):
     latest_prompts = df.loc[df.groupby('lineage_id')['version'].idxmax()].sort_values('created_at', ascending=False)
     
     for _, row in latest_prompts.iterrows():
-        with st.container(border=True):
-            # Check if this is the latest improvement
-            is_latest_improvement = (
-                'last_improvement' in st.session_state and 
-                st.session_state.last_improvement['improved_prompt']['id'] == row['id']
-            )
+        # Use custom container styling
+        st.markdown('<div class="prompt-container">', unsafe_allow_html=True)
+        
+        # Check if this is the latest improvement
+        is_latest_improvement = (
+            'last_improvement' in st.session_state and 
+            st.session_state.last_improvement['improved_prompt']['id'] == row['id']
+        )
+        
+        # Check if this is a newly generated prompt
+        is_newly_generated = (
+            'newly_generated_prompt' in st.session_state and 
+            st.session_state.newly_generated_prompt.get('prompt_data', {}).get('id') == row['id']
+        )
+        
+        if is_newly_generated:
+            st.markdown(f"#### 🆕 {row.get('task', 'Untitled')} (v{row.get('version', 1)}) - **Just Created!**")
+            st.success("✨ This is a newly generated prompt! It's currently being tested.")
             
-            # Check if this is a newly generated prompt
-            is_newly_generated = (
-                'newly_generated_prompt' in st.session_state and 
-                st.session_state.newly_generated_prompt.get('prompt_data', {}).get('id') == row['id']
-            )
+            # Show generation process for newly created prompts
+            if row.get('generation_process'):
+                with st.expander("🧠 View Generation Process", expanded=True):
+                    st.markdown(row['generation_process'])
             
-            if is_newly_generated:
-                st.markdown(f"#### 🆕 {row.get('task', 'Untitled')} (v{row.get('version', 1)}) - **Just Created!**")
-                st.success("✨ This is a newly generated prompt! It's currently being tested.")
-                
-                # Show generation process for newly created prompts
-                if row.get('generation_process'):
-                    with st.expander("🧠 View Generation Process", expanded=True):
-                        st.markdown(row['generation_process'])
-                
-                # Add a special improve button for newly generated prompts
-                if st.button("✨ Improve This Prompt", key=f"improve_new_{row['id']}", use_container_width=True):
-                    st.session_state.improving_prompt_id = row['id']
-                    st.rerun()
-            elif is_latest_improvement:
-                st.markdown(f"#### 🆕 {row.get('task', 'Untitled')} (v{row.get('version', 1)}) - **Just Improved!**")
-                st.success("✨ This prompt was just improved! Check the improvement results above.")
-            else:
-                st.markdown(f"#### {row.get('task', 'Untitled')} (v{row.get('version', 1)})")
-            
-            st.code(row['prompt'], language='text')
-            
-            # Check for training data to enable/disable optimize button
-            has_training_data = False
-            if row.get('training_data'):
-                try:
-                    if json.loads(row['training_data']):
-                        has_training_data = True
-                except json.JSONDecodeError:
-                    pass
-
-            cols = st.columns(5)
-            if cols[0].button("🧪 Test", key=f"test_{row['id']}", use_container_width=True):
-                st.session_state.test_chat_history = [] 
-                st.session_state.testing_prompt_id = row['id']
+            # Add a special improve button for newly generated prompts
+            if st.button("✨ Improve This Prompt", key=f"improve_new_{row['id']}", use_container_width=True):
+                st.session_state.improving_prompt_id = row['id']
                 st.rerun()
-            
-            if cols[1].button("✨ Improve", key=f"improve_{row['id']}", use_container_width=True):
-                # Only open improve dialog if no other dialog is active
-                if not st.session_state.get('testing_prompt_id'):
-                    # Set the improving prompt ID to open the dialog on next rerun
-                    st.session_state.improving_prompt_id = row['id']
-                    st.rerun()
-                else:
-                    st.warning("Please close the test dialog first.")
+        elif is_latest_improvement:
+            st.markdown(f"#### 🆕 {row.get('task', 'Untitled')} (v{row.get('version', 1)}) - **Just Improved!**")
+            st.success("✨ This prompt was just improved! Check the improvement results above.")
+        else:
+            st.markdown(f"#### {row.get('task', 'Untitled')} (v{row.get('version', 1)})")
+        
+        st.code(row['prompt'], language='text')
+        
+        # Check for training data to enable/disable optimize button
+        has_training_data = False
+        if row.get('training_data'):
+            try:
+                if json.loads(row['training_data']):
+                    has_training_data = True
+            except json.JSONDecodeError:
+                pass
 
-            if has_training_data:
-                cols[2].button(
-                    "⚡ Optimize", 
-                    key=f"optimize_{row['id']}", 
-                    on_click=partial(handle_optimize_prompt, row['id']), 
-                    use_container_width=True
-                )
+        # Primary Actions Row - Most important actions
+        st.markdown('<div class="prompt-actions">', unsafe_allow_html=True)
+        st.markdown('<div class="button-group">', unsafe_allow_html=True)
+        primary_cols = st.columns(2)
+        
+        # Primary Action 1: Test (Most important - users need to test first)
+        if primary_cols[0].button("🧪 Test", key=f"test_{row['id']}", use_container_width=True, type="primary"):
+            st.session_state.test_chat_history = [] 
+            st.session_state.testing_prompt_id = row['id']
+            st.rerun()
+        
+        # Primary Action 2: Improve (Second most important)
+        if primary_cols[1].button("✨ Improve", key=f"improve_{row['id']}", use_container_width=True, type="primary"):
+            # Only open improve dialog if no other dialog is active
+            if not st.session_state.get('testing_prompt_id'):
+                # Set the improving prompt ID to open the dialog on next rerun
+                st.session_state.improving_prompt_id = row['id']
+                st.rerun()
+            else:
+                st.warning("Please close the test dialog first.")
+        st.markdown('</div>', unsafe_allow_html=True)
 
-            if cols[3].button("📜 Lineage", key=f"lineage_{row['id']}", use_container_width=True):
-                # Only open lineage dialog if no other dialog is active
-                if not st.session_state.get('testing_prompt_id'):
-                    st.session_state.viewing_lineage_id = row['lineage_id']
-                    st.rerun()
-                else:
-                    st.warning("Please close the test dialog first.")
-            
-            cols[4].button("🗑️ Delete", key=f"delete_{row['id']}", on_click=partial(handle_delete_lineage, row['lineage_id']), type="primary", use_container_width=True)
+        # Secondary Actions Row - Supporting actions
+        st.markdown('<div class="button-group">', unsafe_allow_html=True)
+        secondary_cols = st.columns(3)
+        
+        # Secondary Action 1: Optimize (when training data available)
+        if has_training_data:
+            secondary_cols[0].button(
+                "⚡ Optimize", 
+                key=f"optimize_{row['id']}", 
+                on_click=partial(handle_optimize_prompt, row['id']), 
+                use_container_width=True
+            )
+        else:
+            # Disabled optimize button when no training data
+            secondary_cols[0].button(
+                "⚡ Optimize", 
+                key=f"optimize_{row['id']}", 
+                use_container_width=True, 
+                disabled=True,
+                help="Test your prompt and provide feedback to enable optimization"
+            )
+
+        # Secondary Action 2: Lineage
+        if secondary_cols[1].button("📜 Lineage", key=f"lineage_{row['id']}", use_container_width=True):
+            # Only open lineage dialog if no other dialog is active
+            if not st.session_state.get('testing_prompt_id'):
+                st.session_state.viewing_lineage_id = row['lineage_id']
+                st.rerun()
+            else:
+                st.warning("Please close the test dialog first.")
+        
+        # Secondary Action 3: GitHub Commit
+        from prompt_platform.github_integration import GitHubIntegration
+        github_integration = GitHubIntegration()
+        
+        if github_integration.is_enabled() and github_integration.is_configured():
+            if secondary_cols[2].button("🔗 Commit", key=f"commit_{row['id']}", use_container_width=True):
+                # Commit the prompt to GitHub
+                try:
+                    result = github_integration.commit_prompt_to_github(row)
+                    if result.get('success'):
+                        st.success(f"✅ {result.get('message', 'Prompt committed to GitHub!')}")
+                        if result.get('url'):
+                            st.info(f"🔗 View at: {result['url']}")
+                    else:
+                        st.error(f"❌ {result.get('error', 'Failed to commit prompt to GitHub')}")
+                except Exception as e:
+                    st.error(f"❌ Error committing to GitHub: {e}")
+        else:
+            # Disabled commit button when GitHub is not configured
+            secondary_cols[2].button(
+                "🔗 Commit", 
+                key=f"commit_{row['id']}", 
+                use_container_width=True, 
+                disabled=True, 
+                help="GitHub integration not configured"
+            )
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Destructive Action Row - Separated for safety
+        st.markdown('<div class="prompt-separator"></div>', unsafe_allow_html=True)
+        st.markdown('<div class="button-group">', unsafe_allow_html=True)
+        delete_col = st.columns([1, 1, 1])  # Center the delete button
+        
+        # Destructive Action: Delete (centered, styled as destructive)
+        if delete_col[1].button(
+            "🗑️ Delete", 
+            key=f"delete_{row['id']}", 
+            on_click=partial(handle_delete_lineage, row['lineage_id']), 
+            type="secondary",
+            use_container_width=True
+        ):
+            pass  # The on_click handler will take care of the deletion
+        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Close the custom container
+        st.markdown('</div>', unsafe_allow_html=True)
