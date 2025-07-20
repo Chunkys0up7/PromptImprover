@@ -77,11 +77,18 @@ def improve_prompt_dialog(prompt_id):
     
     if prompt_data and prompt_data.get('training_data'):
         try:
-            training_data = json.loads(prompt_data['training_data'])
+            # Handle both string (JSON) and list formats
+            if isinstance(prompt_data['training_data'], str):
+                training_data = json.loads(prompt_data['training_data'])
+            else:
+                training_data = prompt_data['training_data']
+            
             training_count = len(training_data) if isinstance(training_data, list) else 0
             has_training_data = training_count > 0
-        except json.JSONDecodeError:
-            pass
+        except (json.JSONDecodeError, TypeError, AttributeError):
+            # If we can't parse the training data, assume it's empty
+            has_training_data = False
+            training_count = 0
     
     # Show DSPy status
     if has_training_data:
@@ -96,6 +103,60 @@ def improve_prompt_dialog(prompt_id):
         st.error("API client is not configured. Please check your API token in the environment variables.")
         return
 
+    # Check if improvement is in progress
+    if hasattr(st.session_state, 'improvement_in_progress') and st.session_state.improvement_in_progress:
+        st.warning("🔄 Improvement in progress... Please wait.")
+        return
+
+    # Check if improvement was just completed
+    if hasattr(st.session_state, 'improvement_completed') and st.session_state.improvement_completed:
+        st.success("✅ Improvement completed successfully!")
+        
+        # Show improvement results
+        if hasattr(st.session_state, 'last_improvement') and st.session_state.last_improvement:
+            improvement = st.session_state.last_improvement
+            
+            st.markdown("### 📊 Improvement Results")
+            
+            # Show the improvement request
+            st.markdown(f"**Improvement Request:** {improvement.get('improvement_request', 'N/A')}")
+            
+            # Show methodology
+            if improvement.get('methodology'):
+                with st.expander("🧠 View Improvement Methodology", expanded=False):
+                    st.markdown(improvement['methodology'])
+            
+            # Show diff if available
+            if improvement.get('diff_html'):
+                with st.expander("📝 View Changes", expanded=True):
+                    st.markdown(improvement['diff_html'], unsafe_allow_html=True)
+            
+            # Show action buttons
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                if st.button("🧪 Test Improved Prompt", use_container_width=True):
+                    # Set the improved prompt for testing
+                    improved_prompt = improvement.get('improved_prompt')
+                    if improved_prompt:
+                        st.session_state.testing_prompt_id = improved_prompt['id']
+                        st.session_state.improving_prompt_id = None  # Close improve dialog
+                        st.session_state.improvement_completed = False  # Reset flag
+                        st.rerun()
+            
+            with col2:
+                if st.button("📋 View in Manage Tab", use_container_width=True):
+                    st.session_state.improving_prompt_id = None  # Close dialog
+                    st.session_state.improvement_completed = False  # Reset flag
+                    st.rerun()
+            
+            with col3:
+                if st.button("✨ Improve Again", use_container_width=True):
+                    st.session_state.improvement_completed = False  # Reset flag
+                    st.rerun()
+        
+        return
+
     task_desc = sanitize_text(st.text_area("Improvement instruction:", height=100))
     
     col1, col2 = st.columns(2)
@@ -103,6 +164,9 @@ def improve_prompt_dialog(prompt_id):
     with col1:
         if st.button("Generate Improvement", use_container_width=True):
             if task_desc:
+                # Set improvement in progress flag
+                st.session_state.improvement_in_progress = True
+                
                 with st.status("🔄 Improving prompt...", expanded=True) as status:
                     if has_training_data:
                         status.write("🎯 Using DSPy optimization...")
@@ -113,13 +177,28 @@ def improve_prompt_dialog(prompt_id):
                         status.write("🧠 Generating enhanced prompt...")
                     status.write("💾 Saving new version...")
                     
-                    run_async(improve_and_save_prompt(prompt_id, task_desc))
+                    # Run the improvement
+                    from prompt_platform.ui_actions import improve_and_save_prompt
+                    from prompt_platform.utils import run_async
                     
-                    status.update(label="✅ Improvement complete! Check the results below.", state="complete")
-                    st.success("🎉 Prompt improved successfully! The results will be displayed on the main page.")
-                    # Clear the improving state to close dialog
-                    st.session_state.improving_prompt_id = None
-                    st.rerun() # Close dialog and refresh main page
+                    result = run_async(improve_and_save_prompt(prompt_id, task_desc))
+                    
+                    if result:
+                        status.update(label="✅ Improvement complete! Check the results below.", state="complete")
+                        
+                        # Set completion flags
+                        st.session_state.improvement_in_progress = False
+                        st.session_state.improvement_completed = True
+                        
+                        # Show success message
+                        st.success("🎉 Prompt improved successfully!")
+                        
+                        # Rerun to show results
+                        st.rerun()
+                    else:
+                        status.update(label="❌ Improvement failed", state="error")
+                        st.session_state.improvement_in_progress = False
+                        st.error("Failed to improve prompt. Please try again.")
             else:
                 st.warning("Please provide an improvement instruction.")
     
@@ -127,7 +206,11 @@ def improve_prompt_dialog(prompt_id):
         if st.button("❌ Cancel", use_container_width=True):
             # Clear the improving state to close dialog
             st.session_state.improving_prompt_id = None
-            st.rerun()
+            # Reset any improvement flags
+            if hasattr(st.session_state, 'improvement_in_progress'):
+                del st.session_state.improvement_in_progress
+            if hasattr(st.session_state, 'improvement_completed'):
+                del st.session_state.improvement_completed
 
 @st.dialog("✍️ Correct AI Output")
 def correction_dialog(prompt_id, user_input, actual_output):
@@ -174,15 +257,33 @@ def test_prompt_dialog(prompt_id):
     """Renders the 'Test Prompt' dialog and handles the chat interaction."""
     prompt_data = st.session_state.db.get_prompt(prompt_id)
     
-    # Check if this is a newly generated prompt
+    # Check if this is a newly generated or improved prompt
     is_newly_generated = (
         'newly_generated_prompt' in st.session_state and 
+        st.session_state.newly_generated_prompt is not None and
         st.session_state.newly_generated_prompt.get('prompt_data', {}).get('id') == prompt_id
+    )
+    
+    # Check if this is an improved prompt (different from newly generated)
+    is_improved_prompt = (
+        'newly_generated_prompt' in st.session_state and 
+        st.session_state.newly_generated_prompt is not None and
+        st.session_state.newly_generated_prompt.get('original_prompt_id') == prompt_id and
+        st.session_state.newly_generated_prompt.get('prompt_data', {}).get('id') != prompt_id
     )
     
     if is_newly_generated:
         st.title(f"🎉 Testing New Prompt: {prompt_data.get('task', 'Untitled')}")
         st.success("✨ Your prompt has been created! Let's test it with some relevant examples.")
+    elif is_improved_prompt:
+        improved_prompt_data = st.session_state.newly_generated_prompt['prompt_data']
+        st.title(f"🚀 Testing Improved Prompt: {improved_prompt_data.get('task', 'Untitled')}")
+        st.success(f"✨ Your prompt has been improved! Testing version {improved_prompt_data.get('version', 1)}")
+        
+        # Show improvement request
+        improvement_request = st.session_state.newly_generated_prompt.get('improvement_request', '')
+        if improvement_request:
+            st.info(f"**Improvement Request:** {improvement_request}")
     else:
         st.title(f"Testing: {prompt_data.get('task', 'Untitled')} (v{prompt_data.get('version', 1)})")
     
@@ -195,13 +296,16 @@ def test_prompt_dialog(prompt_id):
         # Clear the diff from session state after displaying it
         del st.session_state.prompt_diff
 
+    # Use improved prompt data if this is an improved prompt
+    display_prompt_data = improved_prompt_data if is_improved_prompt else prompt_data
+    
     with st.expander("Show Current Prompt"):
-        st.code(prompt_data['prompt'], language='text')
+        st.code(display_prompt_data['prompt'], language='text')
         
         # Show generation process if available
-        if prompt_data.get('generation_process'):
+        if display_prompt_data.get('generation_process'):
             st.markdown("**🧠 Generation Process:**")
-            st.markdown(prompt_data['generation_process'])
+            st.markdown(display_prompt_data['generation_process'])
     
     # For newly generated prompts, show contextual testing guidance
     if is_newly_generated:
@@ -237,9 +341,12 @@ def test_prompt_dialog(prompt_id):
             if not desired_output and not critique:
                 st.warning("Please provide either a desired output, a critique, or both.")
             else:
+                # Use the correct prompt ID for correction (improved version if available)
+                correction_prompt_id = display_prompt_data['id'] if is_improved_prompt else prompt_id
+                
                 with st.spinner("Saving correction and improving prompt..."):
                     run_async(handle_correction_and_improve(
-                        prompt_id, 
+                        correction_prompt_id, 
                         correction_data["user_input"], 
                         desired_output,
                         critique
@@ -264,7 +371,7 @@ def test_prompt_dialog(prompt_id):
                     
                     # Fix placeholder on the fly for backwards compatibility.
                     # We only replace the first instance to avoid corrupting examples.
-                    prompt_template = prompt_data['prompt'].replace('{{input}}', '{input}', 1)
+                    prompt_template = display_prompt_data['prompt'].replace('{{input}}', '{input}', 1)
                     final_prompt = prompt_template.format(input=last_user_input)
 
                     messages = [
@@ -297,13 +404,16 @@ def test_prompt_dialog(prompt_id):
             feedback_key_base = f"feedback_{len(st.session_state.test_chat_history)}"
             col1, col2 = st.columns(2)
             
+            # Use the correct prompt ID for feedback (improved version if available)
+            feedback_prompt_id = display_prompt_data['id'] if is_improved_prompt else prompt_id
+            
             with col1:
                 st.button(
                     "👍 Good Example", 
                     key=f"{feedback_key_base}_good", 
                     use_container_width=True,
                     on_click=handle_save_example,
-                    args=(prompt_id, last_user_input, assistant_response)
+                    args=(feedback_prompt_id, last_user_input, assistant_response)
                 )
             
             with col2:
@@ -320,13 +430,29 @@ def main_manager_view(prompts):
     if not prompts:
         st.info("No prompts found. Use the '🚀 Generate' tab to create your first prompt.")
         return
-        
-    df = pd.DataFrame(prompts)
-    latest_prompts = df.loc[df.groupby('lineage_id')['version'].idxmax()].sort_values('created_at', ascending=False)
     
-    for _, row in latest_prompts.iterrows():
+    # Add loading state
+    with st.spinner("Loading prompts..."):
+        df = pd.DataFrame(prompts)
+        latest_prompts = df.loc[df.groupby('lineage_id')['version'].idxmax()].sort_values('created_at', ascending=False)
+    
+    # Show loading progress
+    progress_bar = st.progress(0)
+    status_text = st.empty()
+    
+    for idx, (_, row) in enumerate(latest_prompts.iterrows()):
+        # Update progress
+        progress = (idx + 1) / len(latest_prompts)
+        progress_bar.progress(progress)
+        status_text.text(f"Loading prompt {idx + 1} of {len(latest_prompts)}")
+        
         # Use custom container styling
         st.markdown('<div class="prompt-container">', unsafe_allow_html=True)
+        
+        # Clear loading indicators after first prompt
+        if idx == 0:
+            progress_bar.empty()
+            status_text.empty()
         
         # Check if this is the latest improvement
         is_latest_improvement = (
@@ -373,10 +499,17 @@ def main_manager_view(prompts):
         has_training_data = False
         if row.get('training_data'):
             try:
-                if json.loads(row['training_data']):
+                # Handle both string (JSON) and list formats
+                if isinstance(row['training_data'], str):
+                    training_data = json.loads(row['training_data'])
+                else:
+                    training_data = row['training_data']
+                
+                if training_data and len(training_data) > 0:
                     has_training_data = True
-            except json.JSONDecodeError:
-                pass
+            except (json.JSONDecodeError, TypeError, AttributeError):
+                # If we can't parse the training data, assume it's empty
+                has_training_data = False
 
         # Primary Actions Row - Most important actions
         st.markdown('<div class="prompt-actions">', unsafe_allow_html=True)

@@ -170,7 +170,7 @@ Provide your response in this format:
         
         # Step 4: Run DSPy optimization
         improved_prompt = await self._run_dspy_optimization(
-            task_signature, training_data, evaluation_metric, optimizer
+            task_signature, training_data, evaluation_metric, optimizer, original_prompt_data['prompt']
         )
         
         # Step 5: Create improved prompt data
@@ -188,7 +188,7 @@ Provide your response in this format:
         """Define the DSPy signature for the task."""
         # Create a dynamic signature based on the task
         class TaskSignature(dspy.Signature):
-            """Dynamic signature for prompt optimization."""
+            """Generate a response based on the user's input using the optimized prompt."""
             input = dspy.InputField(desc="User input for the task")
             output = dspy.OutputField(desc="Expected output based on the prompt")
         
@@ -272,10 +272,9 @@ Provide your response in this format:
             )
 
     async def _run_dspy_optimization(self, signature: dspy.Signature, training_data: list, 
-                                   evaluation_metric: Callable, optimizer: Any) -> str:
-        """Run the DSPy optimization process."""
+                                   evaluation_metric: Callable, optimizer: Any, original_prompt: str) -> str:
+        """Run DSPy optimization and extract the optimized prompt."""
         try:
-            # Create DSPy module with the signature
             class OptimizedModule(dspy.Module):
                 def __init__(self):
                     super().__init__()
@@ -289,6 +288,8 @@ Provide your response in this format:
             for item in training_data:
                 if isinstance(item, dict) and 'input' in item and 'output' in item:
                     example = dspy.Example(input=item['input'], output=item['output'])
+                    # Set the inputs properly for DSPy
+                    example = example.with_inputs(input=item['input'])
                     trainset.append(example)
             
             if not trainset:
@@ -302,8 +303,49 @@ Provide your response in this format:
                 trainset=trainset
             )
             
-            # Extract the optimized prompt
-            optimized_prompt = optimized_module.generate_answer.raw_instructions
+            # Extract the optimized prompt - handle different DSPy module types
+            try:
+                # Try multiple methods to extract the optimized prompt
+                optimized_prompt = None
+                
+                # Method 1: Try to get from signature instructions
+                if hasattr(optimized_module.generate_answer, 'signature'):
+                    signature = optimized_module.generate_answer.signature
+                    if hasattr(signature, 'instructions'):
+                        optimized_prompt = signature.instructions
+                
+                # Method 2: Try to get from the module's docstring
+                if not optimized_prompt and hasattr(optimized_module.generate_answer, '__doc__'):
+                    doc = optimized_module.generate_answer.__doc__
+                    if doc and doc.strip() and "Generate a response" not in doc:
+                        optimized_prompt = doc
+                
+                # Method 3: Try to get from the signature's docstring
+                if not optimized_prompt and hasattr(optimized_module.generate_answer, 'signature'):
+                    signature = optimized_module.generate_answer.signature
+                    if hasattr(signature, '__doc__'):
+                        doc = signature.__doc__
+                        if doc and doc.strip() and "Generate a response" not in doc:
+                            optimized_prompt = doc
+                
+                # Method 4: Try to get from the module's raw_instructions (if available)
+                if not optimized_prompt and hasattr(optimized_module.generate_answer, 'raw_instructions'):
+                    optimized_prompt = optimized_module.generate_answer.raw_instructions
+                
+                # If we still don't have a prompt, use the original
+                if not optimized_prompt or optimized_prompt.strip() == "":
+                    logger.warning("Could not extract optimized prompt from DSPy module, using original")
+                    optimized_prompt = original_prompt
+                
+                # Clean up the prompt if it's just the default docstring
+                if optimized_prompt and "Generate a response based on the user's input using the optimized prompt." in optimized_prompt:
+                    logger.warning("Extracted prompt is default docstring, using original")
+                    optimized_prompt = original_prompt
+                    
+            except Exception as e:
+                logger.warning(f"Could not extract optimized prompt: {e}")
+                # Use the original prompt as fallback
+                optimized_prompt = original_prompt
             
             # Ensure the prompt has the required placeholder
             if '{input}' not in optimized_prompt:

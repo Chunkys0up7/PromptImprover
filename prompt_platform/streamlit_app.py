@@ -37,7 +37,8 @@ from prompt_platform.fragments import (
     prompt_management_fragment,
     prompt_review_fragment,
     performance_metrics_fragment,
-    settings_fragment
+    settings_fragment,
+    guided_workflow_fragment
 )
 
 # --- Enhanced Page Configuration ---
@@ -234,7 +235,7 @@ def main():
         """)
     
     # Enhanced tab system with modern styling and fragments
-    tab1, tab2, tab3, tab4 = st.tabs(["🚀 Generate", "📋 Manage", "📊 Dashboard", "⚙️ Settings"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["🚀 Generate", "📋 Manage", "📊 Dashboard", "🎯 Guided Workflow", "⚙️ Settings"])
 
     with tab1:
         st.subheader("Generate New Prompt")
@@ -306,6 +307,10 @@ def main():
             performance_metrics_fragment()
 
     with tab4:
+        # New Guided Workflow Tab
+        guided_workflow_fragment()
+
+    with tab5:
         # Use fragment-based settings
         settings_fragment()
 

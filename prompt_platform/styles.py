@@ -8,31 +8,33 @@ the Streamlit theme configuration and support modern UI patterns.
 def load_custom_styles():
     """Load modular CSS styles with modern design patterns"""
     return """
+    <style>
     /* Modern CSS using Streamlit 1.39+ key-based styling */
+    /* CSS Version: 1.2 - Fixed injection */
     
     /* Main header styling */
     .main-header { 
-        font-size: 2.5rem; 
-        font-weight: 700; 
-        color: var(--primary-color, #667eea); 
-        text-align: center; 
-        margin-bottom: 2rem; 
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-        -webkit-background-clip: text; 
-        -webkit-text-fill-color: transparent; 
-        background-clip: text;
+        font-size: 2.5rem !important; 
+        font-weight: 700 !important; 
+        color: #667eea !important; 
+        text-align: center !important; 
+        margin-bottom: 2rem !important; 
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important; 
+        -webkit-background-clip: text !important; 
+        -webkit-text-fill-color: transparent !important; 
+        background-clip: text !important;
     }
     
     /* Enhanced button styling with modern gradients */
     .stButton > button {
-        background: linear-gradient(135deg, var(--primary-color, #667eea) 0%, #764ba2 100%);
-        color: white;
-        border: none;
-        border-radius: var(--base-radius, 8px);
-        padding: 0.75rem 1.5rem;
-        font-weight: 600;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        box-shadow: 0 4px 6px rgba(102, 126, 234, 0.25);
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 8px !important;
+        padding: 0.75rem 1.5rem !important;
+        font-weight: 600 !important;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        box-shadow: 0 4px 6px rgba(102, 126, 234, 0.25) !important;
     }
     
     .stButton > button:hover {
@@ -46,6 +48,7 @@ def load_custom_styles():
         background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%) !important;
         border: 2px solid #3b82f6 !important;
         font-weight: 700 !important;
+        color: white !important;
     }
     
     .stButton > button[data-testid*="test_"]:not(:disabled):hover,
@@ -216,19 +219,33 @@ def load_custom_styles():
     
     /* Tab styling */
     .stTabs [data-baseweb="tab-list"] {
-        gap: 0.5rem;
+        gap: 1.5rem !important;
+        padding: 0 1rem !important;
     }
     
     .stTabs [data-baseweb="tab"] {
-        border-radius: var(--base-radius, 8px);
-        background: var(--secondary-background-color, #f8fafc);
-        border: 1px solid var(--border-color, #e5e7eb);
+        border-radius: 8px !important;
+        background: #f8fafc !important;
+        border: 1px solid #e5e7eb !important;
+        padding: 0.75rem 1.5rem !important;
+        margin: 0 0.5rem !important;
+        font-weight: 600 !important;
+        transition: all 0.2s ease !important;
+    }
+    
+    .stTabs [data-baseweb="tab"]:hover {
+        background: #f1f5f9 !important;
+        transform: translateY(-1px) !important;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
     }
     
     .stTabs [aria-selected="true"] {
-        background: var(--primary-color, #667eea);
-        color: white;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        color: white !important;
+        border-color: #667eea !important;
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3) !important;
     }
+    </style>
     """
 
 def load_dark_mode_styles():
@@ -264,6 +281,7 @@ def load_dark_mode_styles():
 def load_animation_styles():
     """Load animation and transition styles"""
     return """
+    <style>
     /* Smooth transitions for all interactive elements */
     * {
         transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -293,4 +311,82 @@ def load_animation_styles():
     .fade-in {
         animation: fadeIn 0.3s ease-out;
     }
+    
+    /* Accessibility improvements */
+    .stButton > button:focus {
+        outline: 3px solid #3b82f6 !important;
+        outline-offset: 2px !important;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3) !important;
+    }
+    
+    /* High contrast mode support */
+    @media (prefers-contrast: high) {
+        .stButton > button {
+            border: 2px solid currentColor !important;
+        }
+        
+        .main-header {
+            color: #000000 !important;
+            -webkit-text-fill-color: #000000 !important;
+        }
+    }
+    
+    /* Reduced motion support */
+    @media (prefers-reduced-motion: reduce) {
+        .stButton > button {
+            transition: none !important;
+        }
+        
+        .stButton > button:hover {
+            transform: none !important;
+        }
+    }
+    
+    /* Screen reader only text */
+    .sr-only {
+        position: absolute !important;
+        width: 1px !important;
+        height: 1px !important;
+        padding: 0 !important;
+        margin: -1px !important;
+        overflow: hidden !important;
+        clip: rect(0, 0, 0, 0) !important;
+        white-space: nowrap !important;
+        border: 0 !important;
+    }
+    
+    /* Better focus indicators for form elements */
+    .stTextInput > div > div > input:focus,
+    .stTextArea > div > div > textarea:focus,
+    .stSelectbox > div > div > select:focus {
+        outline: 3px solid #3b82f6 !important;
+        outline-offset: 2px !important;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3) !important;
+    }
+    
+    /* Improved color contrast for better readability */
+    .stMarkdown {
+        color: #1f2937 !important;
+    }
+    
+    .stMarkdown strong {
+        color: #111827 !important;
+    }
+    
+    /* Better link styling for accessibility */
+    a {
+        color: #3b82f6 !important;
+        text-decoration: underline !important;
+    }
+    
+    a:hover {
+        color: #1d4ed8 !important;
+        text-decoration: none !important;
+    }
+    
+    a:focus {
+        outline: 2px solid #3b82f6 !important;
+        outline-offset: 2px !important;
+    }
+    </style>
     """ 

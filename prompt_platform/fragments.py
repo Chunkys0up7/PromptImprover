@@ -340,3 +340,237 @@ def settings_fragment():
         st.markdown("- [GitHub Token Setup](https://github.com/settings/tokens)")
         st.markdown("- [Repository Permissions](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/managing-repository-settings/managing-teams-and-people-with-access-to-your-repository)")
         st.markdown("- [Branch Protection](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/defining-the-mergeability-of-pull-requests/managing-a-branch-protection-rule)") 
+
+@st.fragment
+def guided_workflow_fragment():
+    """Fragment for guided workflow that walks users through the complete prompt engineering process"""
+    
+    st.markdown("### 🎯 Guided Prompt Engineering Workflow")
+    st.markdown("Follow this step-by-step process to create, test, and improve your prompts effectively.")
+    
+    # Initialize workflow state
+    if 'workflow_step' not in st.session_state:
+        st.session_state.workflow_step = 1
+    if 'workflow_data' not in st.session_state:
+        st.session_state.workflow_data = {}
+    
+    # Workflow steps
+    steps = [
+        {
+            'title': '📝 Step 1: Define Your Task',
+            'description': 'Clearly describe what you want your AI assistant to do',
+            'action': 'Define Task'
+        },
+        {
+            'title': '🚀 Step 2: Generate Initial Prompt',
+            'description': 'Create your first prompt using AI-powered generation',
+            'action': 'Generate Prompt'
+        },
+        {
+            'title': '🧪 Step 3: Test Your Prompt',
+            'description': 'Test the prompt with real inputs and evaluate outputs',
+            'action': 'Test Prompt'
+        },
+        {
+            'title': '📊 Step 4: Provide Feedback',
+            'description': 'Mark good and bad examples to improve the prompt',
+            'action': 'Provide Feedback'
+        },
+        {
+            'title': '✨ Step 5: Improve Prompt',
+            'description': 'Use feedback to create an improved version',
+            'action': 'Improve Prompt'
+        },
+        {
+            'title': '📈 Step 6: Review & Iterate',
+            'description': 'Test the improved version and continue refining',
+            'action': 'Review Results'
+        }
+    ]
+    
+    # Display current step
+    current_step = steps[st.session_state.workflow_step - 1]
+    
+    # Progress bar
+    progress = st.session_state.workflow_step / len(steps)
+    st.progress(progress)
+    st.markdown(f"**{current_step['title']}** - {current_step['description']}")
+    
+    # Step-specific content
+    if st.session_state.workflow_step == 1:
+        st.markdown("#### 📝 Define Your Task")
+        st.markdown("""
+        **What do you want your AI assistant to do?**
+        
+        Be specific about:
+        - **Task**: What should the AI accomplish?
+        - **Role**: What expertise should the AI have?
+        - **Output**: What format or style do you want?
+        - **Context**: Who is the target audience?
+        """)
+        
+        task_description = st.text_area(
+            "Describe your task:",
+            height=150,
+            placeholder="Example: Create a prompt for a business consultant to help startups develop marketing strategies. The AI should provide actionable advice, consider budget constraints, and suggest both online and offline marketing approaches."
+        )
+        
+        col1, col2 = st.columns([1, 1])
+        with col1:
+            if st.button("Next: Generate Prompt", use_container_width=True):
+                if task_description.strip():
+                    st.session_state.workflow_data['task'] = task_description
+                    st.session_state.workflow_step = 2
+                    st.rerun(scope="fragment")
+                else:
+                    st.warning("Please provide a task description.")
+        
+        with col2:
+            if st.button("Skip to Manage", use_container_width=True):
+                st.session_state.workflow_step = 1
+                st.rerun(scope="fragment")
+    
+    elif st.session_state.workflow_step == 2:
+        st.markdown("#### 🚀 Generate Your Prompt")
+        st.markdown("Let's create your initial prompt using AI-powered generation.")
+        
+        task = st.session_state.workflow_data.get('task', '')
+        st.info(f"**Task:** {task}")
+        
+        if st.button("🚀 Generate Prompt", use_container_width=True):
+            with st.spinner("Generating your prompt..."):
+                from prompt_platform.ui_actions import generate_and_save_prompt
+                from prompt_platform.utils import run_async
+                
+                st.session_state.request_id_var.set(str(st.session_state.uuid.uuid4()))
+                result = run_async(generate_and_save_prompt(task))
+                
+                if result:
+                    st.session_state.workflow_data['generated_prompt'] = result
+                    st.session_state.workflow_step = 3
+                    st.success("✅ Prompt generated successfully!")
+                    st.rerun(scope="fragment")
+                else:
+                    st.error("❌ Failed to generate prompt. Please try again.")
+        
+        col1, col2 = st.columns([1, 1])
+        with col1:
+            if st.button("← Back", use_container_width=True):
+                st.session_state.workflow_step = 1
+                st.rerun(scope="fragment")
+        
+        with col2:
+            if st.button("Skip to Manage", use_container_width=True):
+                st.session_state.workflow_step = 1
+                st.rerun(scope="fragment")
+    
+    elif st.session_state.workflow_step == 3:
+        st.markdown("#### 🧪 Test Your Prompt")
+        st.markdown("Now let's test your generated prompt with real inputs.")
+        
+        if 'newly_generated_prompt' in st.session_state and st.session_state.newly_generated_prompt:
+            prompt_data = st.session_state.newly_generated_prompt['prompt_data']
+            st.success(f"**Generated Prompt:** {prompt_data.get('task', 'Untitled')}")
+            
+            st.markdown("**Next Steps:**")
+            st.markdown("1. Go to the **📋 Manage** tab")
+            st.markdown("2. Find your newly generated prompt")
+            st.markdown("3. Click **🧪 Test** to start testing")
+            st.markdown("4. Try different inputs and evaluate the outputs")
+            
+            if st.button("Go to Manage Tab", use_container_width=True):
+                st.session_state.workflow_step = 4
+                st.rerun(scope="fragment")
+        else:
+            st.info("No prompt found. Please generate a prompt first.")
+            if st.button("← Back to Generate", use_container_width=True):
+                st.session_state.workflow_step = 2
+                st.rerun(scope="fragment")
+    
+    elif st.session_state.workflow_step == 4:
+        st.markdown("#### 📊 Provide Feedback")
+        st.markdown("After testing, provide feedback to improve your prompt.")
+        
+        st.markdown("**How to provide feedback:**")
+        st.markdown("1. In the test dialog, try different inputs")
+        st.markdown("2. For good outputs, click **👍 Good Example**")
+        st.markdown("3. For bad outputs, click **👎 Bad Example**")
+        st.markdown("4. When marking bad examples, provide the correct output")
+        
+        st.markdown("**Why feedback matters:**")
+        st.markdown("- Helps the AI understand what works and what doesn't")
+        st.markdown("- Enables DSPy optimization for better results")
+        st.markdown("- Creates training data for future improvements")
+        
+        if st.button("Continue to Improvement", use_container_width=True):
+            st.session_state.workflow_step = 5
+            st.rerun(scope="fragment")
+    
+    elif st.session_state.workflow_step == 5:
+        st.markdown("#### ✨ Improve Your Prompt")
+        st.markdown("Use your feedback to create an improved version.")
+        
+        st.markdown("**How to improve:**")
+        st.markdown("1. Go to the **📋 Manage** tab")
+        st.markdown("2. Find your prompt and click **✨ Improve**")
+        st.markdown("3. Describe what you want to improve")
+        st.markdown("4. The system will use your feedback to create a better version")
+        
+        st.markdown("**Improvement strategies:**")
+        st.markdown("- **DSPy Optimization**: If you have training examples")
+        st.markdown("- **Basic Improvement**: If no training data available")
+        st.markdown("- **Manual Refinement**: Based on your specific requests")
+        
+        if st.button("Continue to Review", use_container_width=True):
+            st.session_state.workflow_step = 6
+            st.rerun(scope="fragment")
+    
+    elif st.session_state.workflow_step == 6:
+        st.markdown("#### 📈 Review & Iterate")
+        st.markdown("Test your improved prompt and continue the cycle.")
+        
+        st.markdown("**Review process:**")
+        st.markdown("1. Test the improved prompt with the same inputs")
+        st.markdown("2. Compare results with the original version")
+        st.markdown("3. Provide additional feedback if needed")
+        st.markdown("4. Continue improving iteratively")
+        
+        st.markdown("**Success indicators:**")
+        st.markdown("- ✅ More consistent outputs")
+        st.markdown("- ✅ Better alignment with your goals")
+        st.markdown("- ✅ Fewer bad examples")
+        st.markdown("- ✅ Higher quality responses")
+        
+        st.markdown("**🎉 Congratulations!** You've completed the guided workflow.")
+        st.markdown("You now understand the complete prompt engineering cycle.")
+        
+        col1, col2 = st.columns([1, 1])
+        with col1:
+            if st.button("Start New Workflow", use_container_width=True):
+                st.session_state.workflow_step = 1
+                st.session_state.workflow_data = {}
+                st.rerun(scope="fragment")
+        
+        with col2:
+            if st.button("Go to Dashboard", use_container_width=True):
+                st.session_state.workflow_step = 1
+                st.rerun(scope="fragment")
+    
+    # Navigation controls
+    st.markdown("---")
+    col1, col2, col3 = st.columns([1, 2, 1])
+    
+    with col1:
+        if st.session_state.workflow_step > 1:
+            if st.button("← Previous", use_container_width=True):
+                st.session_state.workflow_step -= 1
+                st.rerun(scope="fragment")
+    
+    with col2:
+        st.markdown(f"**Step {st.session_state.workflow_step} of {len(steps)}**")
+    
+    with col3:
+        if st.session_state.workflow_step < len(steps):
+            if st.button("Next →", use_container_width=True):
+                st.session_state.workflow_step += 1
+                st.rerun(scope="fragment") 

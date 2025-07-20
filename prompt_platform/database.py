@@ -244,4 +244,78 @@ class PromptDB:
                 .group_by(Prompt.lineage_id)
                 .order_by(Prompt.lineage_id)
             )
-            return [{'lineage_id': row.lineage_id, 'versions': row.versions} for row in session.execute(stmt)] 
+            return [{'lineage_id': row.lineage_id, 'versions': row.versions} for row in session.execute(stmt)]
+    
+    def get_recent_prompts(self, limit: int = 5) -> List[Dict[str, Any]]:
+        """Gets the most recent prompts with their names and basic info."""
+        with self.session_scope() as session:
+            stmt = (
+                select(Prompt)
+                .order_by(Prompt.created_at.desc())
+                .limit(limit)
+            )
+            prompts = session.scalars(stmt).all()
+            return [prompt.to_dict() for prompt in prompts]
+    
+    def get_top_prompts_by_versions(self, limit: int = 5) -> List[Dict[str, Any]]:
+        """Gets prompts with the most versions (most improved)."""
+        with self.session_scope() as session:
+            stmt = (
+                select(Prompt.lineage_id, func.count(Prompt.id).label('version_count'))
+                .group_by(Prompt.lineage_id)
+                .order_by(func.count(Prompt.id).desc())
+                .limit(limit)
+            )
+            results = session.execute(stmt).all()
+            
+            # Get the latest version of each prompt
+            top_prompts = []
+            for result in results:
+                latest_prompt = session.scalars(
+                    select(Prompt)
+                    .filter_by(lineage_id=result.lineage_id)
+                    .order_by(Prompt.version.desc())
+                    .limit(1)
+                ).first()
+                if latest_prompt:
+                    top_prompts.append({
+                        'lineage_id': result.lineage_id,
+                        'task': latest_prompt.task,
+                        'version_count': result.version_count,
+                        'latest_version': latest_prompt.version,
+                        'created_at': latest_prompt.created_at
+                    })
+            return top_prompts
+    
+    def get_prompt_performance_stats(self) -> Dict[str, Any]:
+        """Gets detailed performance statistics for prompts."""
+        with self.session_scope() as session:
+            total_prompts = session.query(Prompt).distinct(Prompt.lineage_id).count()
+            total_versions = session.query(Prompt).count()
+            total_examples = session.query(Example).count()
+            
+            # Calculate improvement rate
+            improved_prompts = session.query(Prompt).filter(Prompt.version > 1).distinct(Prompt.lineage_id).count()
+            improvement_rate = (improved_prompts / total_prompts * 100) if total_prompts > 0 else 0
+            
+            # Calculate average examples per prompt
+            avg_examples = total_examples / total_prompts if total_prompts > 0 else 0
+            
+            # Get recent activity (last 7 days)
+            week_ago = time.time() - (7 * 24 * 60 * 60)
+            recent_prompts = session.query(Prompt).filter(Prompt.created_at >= week_ago).distinct(Prompt.lineage_id).count()
+            recent_improvements = session.query(Prompt).filter(
+                Prompt.created_at >= week_ago,
+                Prompt.version > 1
+            ).distinct(Prompt.lineage_id).count()
+            
+            return {
+                'total_prompts': total_prompts,
+                'total_versions': total_versions,
+                'total_examples': total_examples,
+                'improvement_rate': round(improvement_rate, 1),
+                'avg_examples_per_prompt': round(avg_examples, 1),
+                'recent_prompts_7d': recent_prompts,
+                'recent_improvements_7d': recent_improvements,
+                'avg_versions_per_prompt': round(total_versions / total_prompts, 1) if total_prompts > 0 else 0
+            } 

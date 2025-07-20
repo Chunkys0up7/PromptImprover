@@ -71,6 +71,11 @@ class ErrorHandler:
                 'message': "The API client is not properly configured.",
                 'suggestion': "Please check your API settings in the Settings tab."
             },
+            'APIAuthError': {
+                'title': "🔑 API Authentication Error",
+                'message': "Your API token is invalid or expired.",
+                'suggestion': "Please update your API token in the Settings tab or check your account balance."
+            },
             'APITimeoutError': {
                 'title': "⏱️ Request Timeout",
                 'message': "The request took too long to complete.",
@@ -101,15 +106,20 @@ class ErrorHandler:
                 'message': "Unable to connect to the service.",
                 'suggestion': "Please check your internet connection and try again."
             },
-            'FileNotFoundError': {
-                'title': "📁 File Not Found",
-                'message': "A required file could not be found.",
-                'suggestion': "Please check your file paths and configuration."
+            'AttributeError': {
+                'title': "🔧 System Configuration Issue",
+                'message': "There's a configuration issue with the system.",
+                'suggestion': "Please try refreshing the page. If the problem persists, contact support."
             },
-            'PermissionError': {
-                'title': "🔒 Permission Denied",
-                'message': "You don't have permission to perform this action.",
-                'suggestion': "Please check your permissions and try again."
+            'TypeError': {
+                'title': "🔧 Data Format Issue",
+                'message': "There's an issue with the data format.",
+                'suggestion': "Please try refreshing the page or restart the application."
+            },
+            'JSONDecodeError': {
+                'title': "📄 Data Format Error",
+                'message': "There's an issue with the data format.",
+                'suggestion': "Please try refreshing the page or restart the application."
             }
         }
         

@@ -127,6 +127,13 @@ async def improve_and_save_prompt(prompt_id, task_desc):
             'methodology': _get_improvement_methodology(task_desc)
         }
 
+        # Update the newly generated prompt state to point to the improved version
+        st.session_state.newly_generated_prompt = {
+            'prompt_data': saved_prompt,
+            'improvement_request': task_desc,
+            'original_prompt_id': prompt_id
+        }
+        
         st.toast("✅ Prompt improved and new version created!", icon="🎉")
         return saved_prompt
     except Exception as e:
