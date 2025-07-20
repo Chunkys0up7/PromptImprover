@@ -25,9 +25,9 @@ class PromptGenerator:
     """
     Handles prompt generation, improvement, and optimization logic.
     
-    - Initial generation: Uses Perplexity AI (Sonar Pro)
-    - Prompt improvement: Uses Perplexity AI (Sonar Pro) 
-    - Optimization: Uses DSPy with Perplexity AI backend
+    - Initial generation: Uses AI-powered prompt engineering
+    - Prompt improvement: Uses systematic prompt engineering principles
+    - Optimization: Uses DSPy framework for few-shot learning
     """
     def __init__(self, db: 'PromptDB'):
         try:
