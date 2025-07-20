@@ -20,54 +20,91 @@ def get_text_diff(text1: str, text2: str) -> str:
     """
     style = """
     <style>
-        table.diff {
-            font-family: Courier, monospace;
-            border: medium;
-            width: 100%;
-            border-collapse: collapse;
+        .diff-container {
+            font-family: 'Courier New', monospace;
+            background-color: #262730;
+            border-radius: 8px;
+            padding: 16px;
+            margin: 8px 0;
         }
-        .diff_header {
-            background-color: #262730; /* Streamlit's dark background */
-            color: #FAFAFA; /* Streamlit's dark text color */
-            padding: 4px;
+        .diff-section {
+            margin-bottom: 16px;
+        }
+        .diff-label {
             font-weight: bold;
-        }
-        td.diff_header {
-            text-align:right;
-        }
-        .diff_next {
-            background-color: #41434D;
-        }
-        .diff_add {
-            background-color: #0F5132; /* A dark green */
             color: #FAFAFA;
+            margin-bottom: 8px;
+            font-size: 14px;
         }
-        .diff_chg {
-            background-color: #664D03; /* A dark yellow */
-            color: #FAFAFA;
-        }
-        .diff_sub {
-            background-color: #58151C; /* A dark red */
-            color: #FAFAFA;
-        }
-        td {
-            padding: 2px 4px;
+        .diff-content {
+            background-color: #1e1e1e;
+            border-radius: 4px;
+            padding: 12px;
+            border-left: 4px solid #6c757d;
             white-space: pre-wrap;
-            word-break: break-all;
-            color: #FAFAFA;
+            word-break: break-word;
+            color: #e9ecef;
+            font-size: 13px;
+            line-height: 1.4;
         }
-        /* Hide the legend table */
-        table.diff ~ table {
-            display: none;
+        .diff-added {
+            background-color: #1a3a1a;
+            border-left-color: #28a745;
+            color: #d4edda;
+        }
+        .diff-removed {
+            background-color: #3a1a1a;
+            border-left-color: #dc3545;
+            color: #f8d7da;
+        }
+        .diff-changed {
+            background-color: #3a2f1a;
+            border-left-color: #ffc107;
+            color: #fff3cd;
         }
     </style>
     """
     
-    diff = difflib.HtmlDiff(wrapcolumn=80).make_table(
-        fromlines=text1.splitlines(), 
-        tolines=text2.splitlines(), 
-        fromdesc="Original Prompt", 
-        todesc="Improved Prompt"
-    )
+    # Create a cleaner diff display
+    lines1 = text1.splitlines()
+    lines2 = text2.splitlines()
     
-    return style + diff
+    matcher = difflib.SequenceMatcher(None, lines1, lines2)
+    
+    html_parts = [style, '<div class="diff-container">']
+    
+    # Original section
+    html_parts.append('<div class="diff-section">')
+    html_parts.append('<div class="diff-label">📝 Original Prompt:</div>')
+    html_parts.append('<div class="diff-content">')
+    html_parts.append(text1)
+    html_parts.append('</div></div>')
+    
+    # Improved section
+    html_parts.append('<div class="diff-section">')
+    html_parts.append('<div class="diff-label">✨ Improved Prompt:</div>')
+    html_parts.append('<div class="diff-content">')
+    html_parts.append(text2)
+    html_parts.append('</div></div>')
+    
+    # Show specific changes if there are any
+    changes = []
+    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+        if tag == 'replace':
+            changes.append(f"Lines {i1+1}-{i2}: Replaced with new content")
+        elif tag == 'delete':
+            changes.append(f"Lines {i1+1}-{i2}: Removed")
+        elif tag == 'insert':
+            changes.append(f"Lines {j1+1}-{j2}: Added")
+    
+    if changes:
+        html_parts.append('<div class="diff-section">')
+        html_parts.append('<div class="diff-label">🔍 Key Changes:</div>')
+        html_parts.append('<div class="diff-content">')
+        for change in changes:
+            html_parts.append(f'• {change}<br>')
+        html_parts.append('</div></div>')
+    
+    html_parts.append('</div>')
+    
+    return ''.join(html_parts)
