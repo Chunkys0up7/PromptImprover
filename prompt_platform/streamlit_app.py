@@ -116,10 +116,11 @@ def main():
         - Identify areas for improvement based on actual performance
         - Apply systematic prompt engineering principles for enhancement
         
-        **2. 🚀 AI-Powered Enhancement**
-        - Our AI applies advanced reasoning to improve prompt effectiveness
+        **2. 🚀 DSPy-Powered Enhancement**
+        - Our AI applies DSPy's systematic optimization framework
+        - Uses data-driven improvement with training examples
+        - Selects appropriate optimizers based on data size
         - Maintains core functionality while enhancing specific aspects
-        - Uses systematic methodologies for optimal prompt structure
         
         **3. 📈 Version Control & Lineage**
         - Every improvement creates a new version with full history
@@ -129,6 +130,7 @@ def main():
         #### **🎨 Key Methodologies:**
         
         - **Systematic Prompt Design**: Structured approach to prompt creation
+        - **DSPy Optimization**: Data-driven prompt improvement using DSPy framework
         - **AI-Powered Enhancement**: Advanced reasoning for prompt optimization
         - **Version Tracking**: Complete history of all changes and improvements
         - **Continuous Learning**: Iterative improvement based on real-world testing
@@ -140,9 +142,14 @@ def main():
         - **Context**: Appropriate role and tone definition
         - **Safety**: Reliable and trustworthy outputs
         - **Flexibility**: Adaptable to different use cases
+        - **Data-Driven**: Optimization based on training examples
         
-        ---
-        *Our system combines the best of systematic prompt engineering with AI-powered optimization to create prompts that consistently deliver high-quality results.*
+        #### **🔬 DSPy Optimization Strategies:**
+        
+        - **BootstrapFewShot**: For limited examples (<10)
+        - **BootstrapFewShotWithRandomSearch**: For moderate data (10-50)
+        - **MIPROv2**: For larger datasets (50+ examples)
+        - **Fallback**: Basic improvement if DSPy optimization fails
         """)
     
     tab1, tab2, tab3 = st.tabs(["🚀 Generate", "📋 Manage", "📊 Dashboard"])
