@@ -224,21 +224,38 @@ def display_improvement_results(context="default"):
             changes = []
             for i, (orig, impr) in enumerate(zip(original_lines, improved_lines)):
                 if orig != impr:
-                    changes.append(f"Line {i+1}: Modified")
+                    changes.append({
+                        "Line": i+1,
+                        "Type": "Modified",
+                        "Original": orig[:100] + "..." if len(orig) > 100 else orig,
+                        "Improved": impr[:100] + "..." if len(impr) > 100 else impr
+                    })
             
             # Add any new lines
             if len(improved_lines) > len(original_lines):
                 for i in range(len(original_lines), len(improved_lines)):
-                    changes.append(f"Line {i+1}: Added")
+                    changes.append({
+                        "Line": i+1,
+                        "Type": "Added",
+                        "Original": "",
+                        "Improved": improved_lines[i][:100] + "..." if len(improved_lines[i]) > 100 else improved_lines[i]
+                    })
             
             # Remove any deleted lines
             if len(original_lines) > len(improved_lines):
                 for i in range(len(improved_lines), len(original_lines)):
-                    changes.append(f"Line {i+1}: Removed")
+                    changes.append({
+                        "Line": i+1,
+                        "Type": "Removed",
+                        "Original": original_lines[i][:100] + "..." if len(original_lines[i]) > 100 else original_lines[i],
+                        "Improved": ""
+                    })
             
             if changes:
-                for change in changes:
-                    st.markdown(f"• {change}")
+                # Create a DataFrame for better table display
+                import pandas as pd
+                df = pd.DataFrame(changes)
+                st.dataframe(df, use_container_width=True, hide_index=True)
             else:
                 st.info("No specific line changes detected")
         
@@ -247,14 +264,35 @@ def display_improvement_results(context="default"):
         with st.container():
             st.markdown(improvement['methodology'])
         
-        # Add a separator for better visual organization
+        # Add action buttons for testing and improving
         st.markdown("---")
+        st.markdown("**🎯 Next Steps:**")
         
-        # Add a button to clear the improvement display with a truly unique key
-        unique_key = f"acknowledge_improvement_{hash(str(improvement))}_{context}_{id(improvement)}"
-        if st.button("✅ Acknowledge & Continue", key=unique_key, use_container_width=True):
-            del st.session_state.last_improvement
-            st.rerun()
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            # Test the improved prompt
+            test_key = f"test_improved_{hash(str(improvement))}_{context}_{id(improvement)}"
+            if st.button("🧪 Test Improved Prompt", key=test_key, use_container_width=True):
+                st.session_state.testing_prompt_id = improvement['improved_prompt']['id']
+                st.session_state.test_chat_history = []
+                st.toast("🧪 Opening test dialog for improved prompt...", icon="🧪")
+                st.rerun()
+        
+        with col2:
+            # Improve the prompt further
+            improve_key = f"improve_further_{hash(str(improvement))}_{context}_{id(improvement)}"
+            if st.button("✨ Improve Further", key=improve_key, use_container_width=True):
+                st.session_state.improving_prompt_id = improvement['improved_prompt']['id']
+                st.toast("✨ Opening improvement dialog...", icon="✨")
+                st.rerun()
+        
+        with col3:
+            # Acknowledge and continue
+            unique_key = f"acknowledge_improvement_{hash(str(improvement))}_{context}_{id(improvement)}"
+            if st.button("✅ Acknowledge & Continue", key=unique_key, use_container_width=True):
+                del st.session_state.last_improvement
+                st.rerun()
 
 async def handle_correction_and_improve(prompt_id: int, user_input: str, desired_output: str, critique: Optional[str]):
     """Saves a corrected example and immediately triggers the prompt improvement process."""
