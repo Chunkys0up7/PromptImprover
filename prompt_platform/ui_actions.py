@@ -201,12 +201,14 @@ def display_improvement_results(context="default"):
         
         st.markdown("**🔍 Changes Made:**")
         # Use a container to ensure proper HTML rendering
-        with st.container():
+        diff_container = st.container()
+        with diff_container:
             st.markdown(improvement['diff_html'], unsafe_allow_html=True)
         
         st.markdown("**🧠 Methodology Applied:**")
         # Use a container with better styling for the methodology
-        with st.container():
+        methodology_container = st.container()
+        with methodology_container:
             st.markdown(f"""
             <div style="background-color: #f8f9fa; border-radius: 8px; padding: 16px; margin: 8px 0; border-left: 4px solid #007bff;">
             {improvement['methodology']}
@@ -216,8 +218,9 @@ def display_improvement_results(context="default"):
         # Add a separator for better visual organization
         st.markdown("---")
         
-        # Add a button to clear the improvement display
-        if st.button("✅ Acknowledge & Continue", key=f"acknowledge_improvement_{id(improvement)}_{context}", use_container_width=True):
+        # Add a button to clear the improvement display with a truly unique key
+        unique_key = f"acknowledge_improvement_{hash(str(improvement))}_{context}_{id(improvement)}"
+        if st.button("✅ Acknowledge & Continue", key=unique_key, use_container_width=True):
             del st.session_state.last_improvement
             st.rerun()
 

@@ -15,63 +15,16 @@ def run_async(coro):
 
 def get_text_diff(text1: str, text2: str) -> str:
     """
-    Generates an HTML side-by-side diff for two texts, including styles
-    that are compatible with Streamlit's dark theme.
+    Generates an HTML side-by-side diff for two texts, using styles
+    defined in the main CSS that are compatible with Streamlit's dark theme.
     """
-    style = """
-    <style>
-        .diff-container {
-            font-family: 'Courier New', monospace;
-            background-color: #262730;
-            border-radius: 8px;
-            padding: 16px;
-            margin: 8px 0;
-        }
-        .diff-section {
-            margin-bottom: 16px;
-        }
-        .diff-label {
-            font-weight: bold;
-            color: #FAFAFA;
-            margin-bottom: 8px;
-            font-size: 14px;
-        }
-        .diff-content {
-            background-color: #1e1e1e;
-            border-radius: 4px;
-            padding: 12px;
-            border-left: 4px solid #6c757d;
-            white-space: pre-wrap;
-            word-break: break-word;
-            color: #e9ecef;
-            font-size: 13px;
-            line-height: 1.4;
-        }
-        .diff-added {
-            background-color: #1a3a1a;
-            border-left-color: #28a745;
-            color: #d4edda;
-        }
-        .diff-removed {
-            background-color: #3a1a1a;
-            border-left-color: #dc3545;
-            color: #f8d7da;
-        }
-        .diff-changed {
-            background-color: #3a2f1a;
-            border-left-color: #ffc107;
-            color: #fff3cd;
-        }
-    </style>
-    """
-    
     # Create a cleaner diff display
     lines1 = text1.splitlines()
     lines2 = text2.splitlines()
     
     matcher = difflib.SequenceMatcher(None, lines1, lines2)
     
-    html_parts = [style, '<div class="diff-container">']
+    html_parts = ['<div class="diff-container">']
     
     # Original section
     html_parts.append('<div class="diff-section">')
