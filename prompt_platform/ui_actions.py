@@ -131,7 +131,7 @@ def _get_improvement_methodology(task_desc):
     if isinstance(task_desc, dict):
         # Structured improvement from correction
         methodology = "**🔄 Iterative Refinement Methodology**\n\n"
-        methodology += "**Framework:** Anthropic's Constitutional AI & Prompt Engineering Principles\n\n"
+        methodology += "**Framework:** Perplexity AI (Sonar Pro) + Systematic Prompt Engineering\n\n"
         methodology += "**Process Steps:**\n\n"
         methodology += "• **📊 User Feedback Integration**\n"
         methodology += "  - Incorporated specific user input and desired output\n"
@@ -139,17 +139,18 @@ def _get_improvement_methodology(task_desc):
         methodology += "• **🔍 Error Analysis**\n"
         methodology += "  - Identified gap between actual and expected responses\n"
         methodology += "  - Applied root cause analysis to prompt weaknesses\n\n"
-        methodology += "• **⚡ Prompt Optimization**\n"
-        methodology += "  - Applied targeted improvements based on feedback\n"
-        methodology += "  - Used Constitutional AI principles for safety and effectiveness\n\n"
+        methodology += "• **⚡ AI-Powered Optimization**\n"
+        methodology += "  - Applied targeted improvements using Perplexity Sonar Pro\n"
+        methodology += "  - Used advanced reasoning capabilities for prompt enhancement\n\n"
         methodology += "• **📈 Version Control**\n"
         methodology += "  - Created new version while preserving lineage\n"
-        methodology += "  - Maintained audit trail for continuous improvement"
+        methodology += "  - Maintained audit trail for continuous improvement\n\n"
+        methodology += "**Note:** For optimization with training data, we use DSPy framework with Perplexity AI backend."
         return methodology
     else:
         # Text-based improvement
         methodology = "**🧠 Prompt Engineering Methodology**\n\n"
-        methodology += "**Framework:** Anthropic's Constitutional AI & Systematic Prompt Design\n\n"
+        methodology += "**Framework:** Perplexity AI (Sonar Pro) + Systematic Prompt Design\n\n"
         methodology += "**Process Steps:**\n\n"
         methodology += "• **📋 Requirement Analysis**\n"
         methodology += "  - Parsed improvement request for key objectives\n"
@@ -157,12 +158,13 @@ def _get_improvement_methodology(task_desc):
         methodology += "• **🛡️ Context Preservation**\n"
         methodology += "  - Maintained core functionality while enhancing specific aspects\n"
         methodology += "  - Ensured prompt safety and reliability\n\n"
-        methodology += "• **🚀 Iterative Enhancement**\n"
-        methodology += "  - Applied systematic improvements to prompt structure\n"
-        methodology += "  - Used Constitutional AI framework for optimization\n\n"
+        methodology += "• **🚀 AI-Powered Enhancement**\n"
+        methodology += "  - Applied systematic improvements using Perplexity Sonar Pro\n"
+        methodology += "  - Leveraged advanced reasoning for optimal prompt structure\n\n"
         methodology += "• **📊 Version Tracking**\n"
         methodology += "  - Created new version with full lineage history\n"
-        methodology += "  - Enabled continuous improvement and audit trail"
+        methodology += "  - Enabled continuous improvement and audit trail\n\n"
+        methodology += "**Note:** For optimization with training data, we use DSPy framework with Perplexity AI backend."
         return methodology
 
 def display_improvement_results():

@@ -23,7 +23,11 @@ class BasicModule(dspy.Module):
 
 class PromptGenerator:
     """
-    Handles prompt generation, improvement, and optimization logic using DSPy.
+    Handles prompt generation, improvement, and optimization logic.
+    
+    - Initial generation: Uses Perplexity AI (Sonar Pro)
+    - Prompt improvement: Uses Perplexity AI (Sonar Pro) 
+    - Optimization: Uses DSPy with Perplexity AI backend
     """
     def __init__(self, db: 'PromptDB'):
         try:
