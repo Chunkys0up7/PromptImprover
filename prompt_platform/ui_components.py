@@ -129,7 +129,20 @@ def close_test_dialog():
 def test_prompt_dialog(prompt_id):
     """Renders the 'Test Prompt' dialog and handles the chat interaction."""
     prompt_data = st.session_state.db.get_prompt(prompt_id)
-    st.title(f"Testing: {prompt_data.get('task', 'Untitled')} (v{prompt_data.get('version', 1)})")
+    
+    # Check if this is a newly generated prompt
+    is_newly_generated = (
+        'newly_generated_prompt' in st.session_state and 
+        st.session_state.newly_generated_prompt.get('prompt_data', {}).get('id') == prompt_id
+    )
+    
+    if is_newly_generated:
+        st.title(f"🎉 New Prompt Generated: {prompt_data.get('task', 'Untitled')}")
+        st.success("✨ Your prompt has been created! Let's test it out and get your feedback.")
+        st.info("💡 **Tip:** Try the prompt with different inputs to see how it performs. Use the feedback buttons to save good examples or correct bad ones.")
+    else:
+        st.title(f"Testing: {prompt_data.get('task', 'Untitled')} (v{prompt_data.get('version', 1)})")
+    
     st.button("Close", on_click=close_test_dialog, use_container_width=True)
 
     # Display the prompt diff if it exists in the session state
@@ -141,6 +154,32 @@ def test_prompt_dialog(prompt_id):
 
     with st.expander("Show Current Prompt"):
         st.code(prompt_data['prompt'], language='text')
+    
+    # For newly generated prompts, offer a quick test with a sample input
+    if is_newly_generated:
+        st.subheader("🚀 Quick Test")
+        sample_inputs = [
+            "Hello, how are you?",
+            "What's the weather like?",
+            "Tell me a joke",
+            "Explain quantum physics",
+            "Write a short story"
+        ]
+        
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            sample_input = st.selectbox(
+                "Choose a sample input to test your prompt:",
+                sample_inputs,
+                key=f"sample_input_{prompt_id}"
+            )
+        with col2:
+            if st.button("🧪 Test Sample", key=f"test_sample_{prompt_id}"):
+                # Add the sample input to chat history and trigger response
+                st.session_state.test_chat_history.append({"role": "user", "content": sample_input})
+                st.rerun()
+        
+        st.divider()
 
     # --- Correction Mode UI ---
     if st.session_state.get('correction_mode'):
@@ -255,7 +294,16 @@ def main_manager_view(prompts):
                 st.session_state.last_improvement['improved_prompt']['id'] == row['id']
             )
             
-            if is_latest_improvement:
+            # Check if this is a newly generated prompt
+            is_newly_generated = (
+                'newly_generated_prompt' in st.session_state and 
+                st.session_state.newly_generated_prompt.get('prompt_data', {}).get('id') == row['id']
+            )
+            
+            if is_newly_generated:
+                st.markdown(f"#### 🆕 {row.get('task', 'Untitled')} (v{row.get('version', 1)}) - **Just Created!**")
+                st.success("✨ This is a newly generated prompt! It's currently being tested.")
+            elif is_latest_improvement:
                 st.markdown(f"#### 🆕 {row.get('task', 'Untitled')} (v{row.get('version', 1)}) - **Just Improved!**")
                 st.success("✨ This prompt was just improved! Check the improvement results above.")
             else:

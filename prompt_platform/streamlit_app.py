@@ -73,6 +73,17 @@ def main():
         # We need to import here to avoid a circular dependency
         from prompt_platform.ui_components import test_prompt_dialog
         test_prompt_dialog(st.session_state.testing_prompt_id)
+    
+    # If a new prompt was just generated, open the test dialog automatically
+    if 'newly_generated_prompt' in st.session_state and st.session_state.newly_generated_prompt.get('should_open_test'):
+        prompt_data = st.session_state.newly_generated_prompt['prompt_data']
+        st.session_state.testing_prompt_id = prompt_data['id']
+        st.session_state.test_chat_history = []
+        # Clear the flag so it doesn't keep opening
+        st.session_state.newly_generated_prompt['should_open_test'] = False
+        # We need to import here to avoid a circular dependency
+        from prompt_platform.ui_components import test_prompt_dialog
+        test_prompt_dialog(prompt_data['id'])
 
     # Draw UI
     draw_sidebar()

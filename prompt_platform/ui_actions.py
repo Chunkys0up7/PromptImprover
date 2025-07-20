@@ -82,9 +82,17 @@ async def generate_and_save_prompt(task):
         new_prompt = await st.session_state.prompt_generator.generate_initial_prompt(
             task, st.session_state.api_client
         )
-        st.session_state.db.save_prompt(new_prompt)
-        st.toast("✅ New prompt created!", icon="🎉")
-        st.rerun() # Refresh the page to show the new prompt
+        saved_prompt = st.session_state.db.save_prompt(new_prompt)
+        
+        # Store the newly generated prompt for immediate testing
+        st.session_state.newly_generated_prompt = {
+            'prompt_data': saved_prompt,
+            'task': task,
+            'should_open_test': True
+        }
+        
+        st.toast("✅ New prompt created! Opening test dialog...", icon="🎉")
+        st.rerun() # Refresh the page to show the new prompt and open test dialog
     except Exception as e:
         st.toast(f"❌ Generation failed: {e}", icon="🔥")
         logger.error(f"Failed to generate and save prompt for task: {task}", exc_info=True)
