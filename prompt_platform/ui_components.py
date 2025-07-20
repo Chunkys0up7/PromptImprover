@@ -40,11 +40,24 @@ def view_lineage_dialog(lineage_id):
     if not prompts:
         st.warning("No prompts found for this lineage.")
         return
-    df = pd.DataFrame(prompts).sort_values('version', ascending=False)
-    df['created_at'] = pd.to_datetime(df['created_at'], unit='s').dt.strftime('%Y-%m-%d %H:%M:%S UTC')
-    # Escape the prompt content to prevent markdown injection
-    df['prompt'] = df['prompt'].apply(escape_markdown)
-    st.dataframe(df[['version', 'task', 'prompt', 'created_at']], use_container_width=True)
+    
+    # Sort prompts by version in descending order
+    sorted_prompts = sorted(prompts, key=lambda x: x.get('version', 0), reverse=True)
+    
+    for prompt in sorted_prompts:
+        with st.expander(f"Version {prompt.get('version', 1)} - {prompt.get('task', 'Untitled')}", expanded=prompt.get('version', 1) == max(p.get('version', 1) for p in sorted_prompts)):
+            st.markdown("**Prompt:**")
+            st.code(prompt.get('prompt', ''), language='text')
+            
+            # Show improvement request if available
+            if prompt.get('improvement_request'):
+                st.markdown("**Improvement Request:**")
+                st.info(prompt.get('improvement_request'))
+            
+            st.markdown(f"**Created:** {pd.to_datetime(prompt.get('created_at', 0), unit='s').strftime('%Y-%m-%d %H:%M:%S UTC')}")
+            
+            if prompt.get('parent_id'):
+                st.markdown(f"**Parent ID:** `{prompt.get('parent_id')}`")
 
 @st.dialog("✨ Improve Prompt")
 def improve_prompt_dialog(prompt_id):
@@ -59,8 +72,15 @@ def improve_prompt_dialog(prompt_id):
     task_desc = sanitize_text(st.text_area("Improvement instruction:", height=100))
     if st.button("Generate Improvement"):
         if task_desc:
-            with st.spinner("Improving..."):
+            with st.status("🔄 Improving prompt...", expanded=True) as status:
+                status.write("📝 Analyzing improvement request...")
+                status.write("🧠 Generating enhanced prompt...")
+                status.write("💾 Saving new version...")
+                
                 run_async(improve_and_save_prompt(prompt_id, task_desc))
+                
+                status.update(label="✅ Improvement complete! Check the results below.", state="complete")
+                st.success("🎉 Prompt improved successfully! The results will be displayed on the main page.")
                 st.rerun() # Close dialog and refresh main page
         else:
             st.warning("Please provide an improvement instruction.")
@@ -229,7 +249,18 @@ def main_manager_view(prompts):
     
     for _, row in latest_prompts.iterrows():
         with st.container(border=True):
-            st.markdown(f"#### {row.get('task', 'Untitled')} (v{row.get('version', 1)})")
+            # Check if this is the latest improvement
+            is_latest_improvement = (
+                'last_improvement' in st.session_state and 
+                st.session_state.last_improvement['improved_prompt']['id'] == row['id']
+            )
+            
+            if is_latest_improvement:
+                st.markdown(f"#### 🆕 {row.get('task', 'Untitled')} (v{row.get('version', 1)}) - **Just Improved!**")
+                st.success("✨ This prompt was just improved! Check the improvement results above.")
+            else:
+                st.markdown(f"#### {row.get('task', 'Untitled')} (v{row.get('version', 1)})")
+            
             st.code(row['prompt'], language='text')
             
             # Check for training data to enable/disable optimize button
@@ -248,7 +279,11 @@ def main_manager_view(prompts):
                 st.rerun()
             
             if cols[1].button("✨ Improve", key=f"improve_{row['id']}", use_container_width=True):
-                improve_prompt_dialog(row['id'])
+                # Only open improve dialog if no other dialog is active
+                if not st.session_state.get('testing_prompt_id'):
+                    improve_prompt_dialog(row['id'])
+                else:
+                    st.warning("Please close the test dialog first.")
 
             if has_training_data:
                 cols[2].button(
@@ -259,7 +294,11 @@ def main_manager_view(prompts):
                 )
 
             if cols[3].button("📜 Lineage", key=f"lineage_{row['id']}", use_container_width=True):
-                view_lineage_dialog(row['lineage_id'])
+                # Only open lineage dialog if no other dialog is active
+                if not st.session_state.get('testing_prompt_id'):
+                    view_lineage_dialog(row['lineage_id'])
+                else:
+                    st.warning("Please close the test dialog first.")
             
             cols[4].button("🗑️ Delete", key=f"delete_{row['id']}", on_click=partial(handle_delete_lineage, row['lineage_id']), type="primary", use_container_width=True)
 

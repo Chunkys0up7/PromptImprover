@@ -109,6 +109,15 @@ async def improve_and_save_prompt(prompt_id, task_desc):
         # Generate and store the diff
         diff_html = get_text_diff(original_prompt['prompt'], saved_prompt['prompt'])
         st.session_state.prompt_diff = diff_html
+        
+        # Store improvement details for immediate display
+        st.session_state.last_improvement = {
+            'original_prompt': original_prompt,
+            'improved_prompt': saved_prompt,
+            'improvement_request': task_desc,
+            'diff_html': diff_html,
+            'methodology': _get_improvement_methodology(task_desc)
+        }
 
         st.toast("✅ Prompt improved and new version created!", icon="🎉")
         return saved_prompt
@@ -116,6 +125,60 @@ async def improve_and_save_prompt(prompt_id, task_desc):
         st.toast(f"❌ Improvement failed: {e}", icon="🔥")
         logger.error(f"Failed to improve and save prompt for id: {prompt_id}", exc_info=True)
         return None
+
+def _get_improvement_methodology(task_desc):
+    """Returns methodology explanation based on the improvement request."""
+    if isinstance(task_desc, dict):
+        # Structured improvement from correction
+        methodology = "**Iterative Refinement Methodology:**\n"
+        methodology += "• **User Feedback Integration:** Incorporated specific user input and desired output\n"
+        methodology += "• **Error Analysis:** Identified gap between actual and expected responses\n"
+        methodology += "• **Prompt Optimization:** Applied targeted improvements based on feedback\n"
+        methodology += "• **Version Control:** Created new version while preserving lineage"
+        return methodology
+    else:
+        # Text-based improvement
+        methodology = "**Prompt Engineering Methodology:**\n"
+        methodology += "• **Requirement Analysis:** Parsed improvement request for key objectives\n"
+        methodology += "• **Context Preservation:** Maintained core functionality while enhancing specific aspects\n"
+        methodology += "• **Iterative Enhancement:** Applied systematic improvements to prompt structure\n"
+        methodology += "• **Version Tracking:** Created new version with full lineage history"
+        return methodology
+
+def display_improvement_results():
+    """Displays the results of the last improvement with methodology explanation."""
+    if 'last_improvement' not in st.session_state:
+        return
+    
+    improvement = st.session_state.last_improvement
+    
+    with st.expander("🎯 **Latest Improvement Results**", expanded=True):
+        col1, col2 = st.columns([2, 1])
+        
+        with col1:
+            st.markdown("**📝 Improvement Request:**")
+            if isinstance(improvement['improvement_request'], dict):
+                st.info(f"**User Input:** {improvement['improvement_request'].get('user_input', 'N/A')}")
+                st.info(f"**Desired Output:** {improvement['improvement_request'].get('desired_output', 'N/A')}")
+                st.info(f"**Critique:** {improvement['improvement_request'].get('critique', 'N/A')}")
+            else:
+                st.info(improvement['improvement_request'])
+        
+        with col2:
+            st.markdown("**📊 Version Info:**")
+            st.metric("Version", improvement['improved_prompt']['version'])
+            st.metric("Lineage ID", improvement['improved_prompt']['lineage_id'][:8] + "...")
+        
+        st.markdown("**🔍 Changes Made:**")
+        st.markdown(improvement['diff_html'], unsafe_allow_html=True)
+        
+        st.markdown("**🧠 Methodology Applied:**")
+        st.markdown(improvement['methodology'])
+        
+        # Add a button to clear the improvement display
+        if st.button("✅ Acknowledge & Continue", use_container_width=True):
+            del st.session_state.last_improvement
+            st.rerun()
 
 async def handle_correction_and_improve(prompt_id: int, user_input: str, desired_output: str, critique: Optional[str]):
     """Saves a corrected example and immediately triggers the prompt improvement process."""

@@ -34,7 +34,7 @@ class PromptGenerator:
             logger.error(f"Failed to configure DSPy: {e}", exc_info=True)
             self.lm = None
 
-    def _create_prompt_data(self, task: str, prompt: str, parent_id: str = None, lineage_id: str = None, version: int = 1, training_data: list = []) -> dict:
+    def _create_prompt_data(self, task: str, prompt: str, parent_id: str = None, lineage_id: str = None, version: int = 1, training_data: list = [], improvement_request: str = None) -> dict:
         """Creates a structured dictionary for a new prompt, validating with Pydantic."""
         if not lineage_id:
             lineage_id = str(uuid.uuid4())
@@ -45,7 +45,8 @@ class PromptGenerator:
             parent_id=parent_id,
             lineage_id=lineage_id,
             version=version,
-            training_data=training_data
+            training_data=training_data,
+            improvement_request=improvement_request
         )
         return validated_prompt.model_dump()
 
@@ -81,16 +82,29 @@ class PromptGenerator:
 
         system_message = "You are an expert prompt engineer. Your task is to improve a prompt based on user feedback. You will be given a critique of a prompt's performance and the prompt itself. Your job is to rewrite the prompt to be more effective. The final revised prompt must include the placeholder '{input}' for the user's runtime input. IMPORTANT: Do not use the placeholder in examples; describe the input instead. Provide ONLY the improved prompt text as your response, without any extra commentary or formatting."
         
-        user_message = f"""The current prompt is:
+        # Handle both string and dict task_description for backward compatibility
+        if isinstance(task_description, str):
+            user_message = f"""The current prompt is:
 ---
 {prompt_text_to_improve}
 ---
 
 It received the following critique:
-- User Input: '{task_description.get('user_input')}'
-- Actual (Bad) Output: '{task_description.get('bad_output')}'
-- Desired Output: '{task_description.get('desired_output')}'
-- Critique: '{task_description.get('critique')}'
+{task_description}
+
+Please provide the improved prompt.
+"""
+        else:
+            user_message = f"""The current prompt is:
+---
+{prompt_text_to_improve}
+---
+
+It received the following critique:
+- User Input: '{task_description.get('user_input', 'Not provided')}'
+- Actual (Bad) Output: '{task_description.get('bad_output', 'Not provided')}'
+- Desired Output: '{task_description.get('desired_output', 'Not provided')}'
+- Critique: '{task_description.get('critique', 'Not provided')}'
 
 Please provide the improved prompt.
 """
@@ -104,13 +118,20 @@ Please provide the improved prompt.
         
         improved_text = await api_client.get_chat_completion(messages)
         
+        # Create improvement request text for storage
+        if isinstance(task_description, str):
+            improvement_request = task_description
+        else:
+            improvement_request = f"User Input: '{task_description.get('user_input', 'Not provided')}'; Bad Output: '{task_description.get('bad_output', 'Not provided')}'; Desired Output: '{task_description.get('desired_output', 'Not provided')}'; Critique: '{task_description.get('critique', 'Not provided')}'"
+        
         return self._create_prompt_data(
             task=original_prompt_data['task'],
             prompt=improved_text,
             parent_id=original_prompt_data['id'],
             lineage_id=original_prompt_data['lineage_id'],
             version=original_prompt_data.get('version', 0) + 1,
-            training_data=original_prompt_data.get('training_data', [])
+            training_data=original_prompt_data.get('training_data', []),
+            improvement_request=improvement_request
         )
 
     async def optimize_prompt(self, existing_prompt_data: dict) -> dict:
@@ -143,5 +164,6 @@ Please provide the improved prompt.
             parent_id=existing_prompt_data['id'],
             lineage_id=existing_prompt_data['lineage_id'],
             version=existing_prompt_data.get('version', 0) + 1,
-            training_data=training_data
+            training_data=training_data,
+            improvement_request="DSPy optimization based on training data"
         ) 

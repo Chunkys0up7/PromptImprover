@@ -62,6 +62,7 @@ class Prompt(Base):
     prompt = Column(Text, nullable=False)
     version = Column(Integer, nullable=False)
     training_data = Column(Text, default='[]')
+    improvement_request = Column(Text, nullable=True)  # Store the improvement request
     created_at = Column(Float, default=time.time, index=True)
     model = Column(String, nullable=True)
 

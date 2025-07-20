@@ -19,6 +19,7 @@ from prompt_platform.version_manager import VersionManager
 from prompt_platform.api_client import APIClient, APIConfigurationError
 from prompt_platform.ui_components import main_manager_view, draw_sidebar
 from prompt_platform.dashboard import render_dashboard
+from prompt_platform.ui_actions import display_improvement_results
 
 # --- Page & Logging Setup ---
 st.set_page_config(page_title="Prompt Platform", layout="wide", initial_sidebar_state="expanded")
@@ -81,6 +82,10 @@ def main():
 
     with tab1:
         st.subheader("Prompt & Version Manager")
+        
+        # Display improvement results if available
+        display_improvement_results()
+        
         if st.button("🔄 Refresh Prompts"):
             st.cache_data.clear()
             st.rerun()
