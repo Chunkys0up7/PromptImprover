@@ -5,6 +5,7 @@ import asyncio
 import dspy
 import uuid
 from functools import lru_cache
+from typing import Any, Callable
 
 from .config import DspyConfig, get_dspy_lm
 from .schemas import Prompt as PromptSchema
@@ -239,7 +240,7 @@ Provide your response in this format:
             # Default to exact match
             return dspy.evaluate.answer_exact_match
 
-    def _select_optimizer(self, data_size: int) -> dspy.Optimizer:
+    def _select_optimizer(self, data_size: int) -> Any:
         """Select the appropriate DSPy optimizer based on data size."""
         if data_size < 10:
             # For limited examples, use BootstrapFewShot
@@ -271,7 +272,7 @@ Provide your response in this format:
             )
 
     async def _run_dspy_optimization(self, signature: dspy.Signature, training_data: list, 
-                                   evaluation_metric: callable, optimizer: dspy.Optimizer) -> str:
+                                   evaluation_metric: Callable, optimizer: Any) -> str:
         """Run the DSPy optimization process."""
         try:
             # Create DSPy module with the signature
