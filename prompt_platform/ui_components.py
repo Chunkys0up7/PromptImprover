@@ -378,7 +378,7 @@ def test_prompt_dialog(prompt_id):
 def main_manager_view(prompts):
     """Renders the main view of the prompt manager."""
     if not prompts:
-        st.info("No prompts found. Use the sidebar to generate or improve a prompt.")
+        st.info("No prompts found. Use the '🚀 Generate' tab to create your first prompt.")
         return
         
     df = pd.DataFrame(prompts)
@@ -461,24 +461,3 @@ def main_manager_view(prompts):
                     st.warning("Please close the test dialog first.")
             
             cols[4].button("🗑️ Delete", key=f"delete_{row['id']}", on_click=partial(handle_delete_lineage, row['lineage_id']), type="primary", use_container_width=True)
-
-def draw_sidebar():
-    """Renders the sidebar for global actions."""
-    with st.sidebar:
-        st.header("🛠️ Global Actions")
-        with st.form("new_prompt_form", clear_on_submit=True):
-            st.subheader("🚀 Generate New Prompt")
-            task = sanitize_text(st.text_area("Task Description:", height=100))
-            if st.form_submit_button("Generate", use_container_width=True):
-                if task:
-                    st.session_state.request_id_var.set(str(st.session_state.uuid.uuid4()))
-                    with st.spinner("Generating..."):
-                        run_async(generate_and_save_prompt(task))
-                        st.cache_data.clear() # To show the new prompt
-                        st.rerun()
-                else:
-                    st.warning("Please provide a task description.")
-
-        # This form is now removed as "Improve" is contextual per prompt
-        # with st.form("improve_prompt_form", clear_on_submit=True):
-        # ... 

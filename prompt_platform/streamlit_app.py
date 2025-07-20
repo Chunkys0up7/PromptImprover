@@ -17,9 +17,11 @@ from prompt_platform.database import PromptDB
 from prompt_platform.prompt_generator import PromptGenerator
 from prompt_platform.version_manager import VersionManager
 from prompt_platform.api_client import APIClient, APIConfigurationError
-from prompt_platform.ui_components import main_manager_view, draw_sidebar
+from prompt_platform.ui_components import main_manager_view
 from prompt_platform.dashboard import render_dashboard
-from prompt_platform.ui_actions import display_improvement_results
+from prompt_platform.ui_actions import display_improvement_results, generate_and_save_prompt
+from prompt_platform.sanitizers import sanitize_text
+from prompt_platform.utils import run_async
 
 # --- Page & Logging Setup ---
 st.set_page_config(page_title="Prompt Platform", layout="wide", initial_sidebar_state="expanded")
@@ -86,24 +88,58 @@ def main():
         test_prompt_dialog(prompt_data['id'])
 
     # Draw UI
-    draw_sidebar()
     st.markdown("<h1 class='main-header'>✨ Prompt Platform</h1>", unsafe_allow_html=True)
     
-    tab1, tab2 = st.tabs(["Manager", "Dashboard"])
+    tab1, tab2, tab3 = st.tabs(["🚀 Generate", "📋 Manage", "📊 Dashboard"])
 
     with tab1:
-        st.subheader("Prompt & Version Manager")
+        st.subheader("Generate New Prompt")
         
         # Display improvement results if available
         display_improvement_results()
         
-        if st.button("🔄 Refresh Prompts"):
+        # Generate prompt form with more space
+        with st.container():
+            st.markdown("### Create a New Prompt")
+            st.markdown("Describe what you want your AI assistant to do. Be specific about the task, role, and expected output.")
+            
+            with st.form("new_prompt_form", clear_on_submit=True):
+                task = sanitize_text(st.text_area(
+                    "**Task Description:**", 
+                    height=200,
+                    placeholder="Example: Create a prompt that helps users write professional emails. The AI should act as a business communication expert, provide clear structure, and suggest appropriate tone and language."
+                ))
+                
+                col1, col2 = st.columns([1, 1])
+                with col1:
+                    if st.form_submit_button("🚀 Generate Prompt", use_container_width=True):
+                        if task:
+                            st.session_state.request_id_var.set(str(st.session_state.uuid.uuid4()))
+                            with st.spinner("Generating your prompt..."):
+                                run_async(generate_and_save_prompt(task))
+                                st.cache_data.clear() # To show the new prompt
+                                st.rerun()
+                        else:
+                            st.warning("Please provide a task description.")
+                
+                with col2:
+                    if st.form_submit_button("🔄 Refresh", use_container_width=True):
+                        st.cache_data.clear()
+                        st.rerun()
+
+    with tab2:
+        st.subheader("Manage Existing Prompts")
+        
+        # Display improvement results if available
+        display_improvement_results()
+        
+        if st.button("🔄 Refresh Prompts", use_container_width=True):
             st.cache_data.clear()
             st.rerun()
         prompts = load_all_prompts()
         main_manager_view(prompts)
 
-    with tab2:
+    with tab3:
         render_dashboard()
 
 if __name__ == "__main__":
