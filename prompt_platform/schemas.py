@@ -17,6 +17,7 @@ class Prompt(BaseModel):
     prompt: str
     training_data: List[Dict[str, Any]] = Field(default_factory=list)
     improvement_request: Optional[str] = None  # Store the user request that triggered improvement
+    generation_process: Optional[str] = None  # Store the process explanation for initial generation
     created_at: float = Field(default_factory=time.time)
 
     @field_validator('training_data', mode='before')

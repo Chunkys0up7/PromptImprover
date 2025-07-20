@@ -65,13 +65,81 @@ class PromptGenerator:
     @lru_cache(maxsize=128)
     async def generate_initial_prompt(self, task: str, api_client: 'APIClient') -> dict:
         """Creates an initial prompt by calling the API with a meta-prompt."""
-        system_message = "You are an expert prompt engineer. Your task is to write a high-quality prompt template that will be used to instruct a powerful AI assistant."
-        user_message = f"The AI assistant needs to perform the following task: **{task}**. Your job is to write the prompt template that will be given to this assistant. The template should contain a placeholder, '{{input}}', which will be replaced with the user's specific request at runtime. The template should directly instruct the AI to perform the task."
+        system_message = """You are an expert prompt engineer specializing in systematic prompt design. Your task is to write a high-quality prompt template that will be used to instruct a powerful AI assistant.
+
+Follow this systematic approach:
+
+1. **Task Analysis**: Break down the user's request into core components
+2. **Role Definition**: Determine the appropriate AI role and expertise needed
+3. **Context Setting**: Establish the right context and constraints
+4. **Instruction Clarity**: Create clear, actionable instructions
+5. **Output Formatting**: Specify desired output structure if relevant
+6. **Quality Assurance**: Ensure the prompt is specific, measurable, and achievable
+
+Your response should include:
+- The final prompt template with '{input}' placeholder
+- A brief explanation of your approach and reasoning"""
+        
+        user_message = f"""The AI assistant needs to perform the following task: **{task}**
+
+Please analyze this task and create an effective prompt template following systematic prompt engineering principles.
+
+Consider:
+- What specific role should the AI take?
+- What context or background information is needed?
+- What are the key instructions for the task?
+- How should the output be structured?
+- What constraints or guidelines should be applied?
+
+Provide your response in this format:
+
+**Prompt Template:**
+[Your prompt template with {input} placeholder]
+
+**Design Process:**
+[Brief explanation of your approach and reasoning]"""
+        
         messages = [{"role": "system", "content": system_message}, {"role": "user", "content": user_message}]
         fallback_prompt = f"Act as an expert on {task}. Respond to the following: {{input}}"
         
-        prompt_text = await self._generate_with_fallback(api_client, messages, fallback_prompt)
-        return self._create_prompt_data(task=task, prompt=prompt_text)
+        response = await self._generate_with_fallback(api_client, messages, fallback_prompt)
+        
+        # Parse the response to extract prompt and process explanation
+        prompt_text, process_explanation = self._parse_generation_response(response, task)
+        
+        # Store the process explanation in the prompt data
+        prompt_data = self._create_prompt_data(task=task, prompt=prompt_text)
+        prompt_data['generation_process'] = process_explanation
+        
+        return prompt_data
+
+    def _parse_generation_response(self, response: str, task: str) -> tuple[str, str]:
+        """Parses the AI response to extract the prompt template and process explanation."""
+        # Try to extract the prompt template and process explanation
+        if "**Prompt Template:**" in response and "**Design Process:**" in response:
+            # Split by the markers
+            parts = response.split("**Prompt Template:**")
+            if len(parts) > 1:
+                prompt_part = parts[1].split("**Design Process:**")[0].strip()
+                process_part = parts[1].split("**Design Process:**")[1].strip() if "**Design Process:**" in parts[1] else ""
+                
+                # Clean up the prompt template
+                prompt_text = prompt_part.strip()
+                if prompt_text.startswith("["):
+                    prompt_text = prompt_text[1:]
+                if prompt_text.endswith("]"):
+                    prompt_text = prompt_text[:-1]
+                
+                return prompt_text, process_part
+        elif "**Design Process:**" in response:
+            # Try to extract just the process explanation
+            process_part = response.split("**Design Process:**")[1].strip()
+            # Use a simple fallback prompt
+            fallback_prompt = f"Act as an expert on {task}. Respond to the following: {{input}}"
+            return fallback_prompt, process_part
+        else:
+            # If no structured response, treat the whole thing as the prompt
+            return response.strip(), "Generated using systematic prompt engineering principles with task analysis and role definition."
 
     async def improve_prompt(self, prompt_id: int, task_description: dict, api_client: 'APIClient', db: 'PromptDB') -> dict:
         """Improves an existing prompt based on a textual description."""

@@ -63,6 +63,7 @@ class Prompt(Base):
     version = Column(Integer, nullable=False)
     training_data = Column(Text, default='[]')
     improvement_request = Column(Text, nullable=True)  # Store the improvement request
+    generation_process = Column(Text, nullable=True)  # Store the generation process explanation
     created_at = Column(Float, default=time.time, index=True)
     model = Column(String, nullable=True)
 

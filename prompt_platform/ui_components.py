@@ -154,6 +154,11 @@ def test_prompt_dialog(prompt_id):
 
     with st.expander("Show Current Prompt"):
         st.code(prompt_data['prompt'], language='text')
+        
+        # Show generation process if available
+        if prompt_data.get('generation_process'):
+            st.markdown("**🧠 Generation Process:**")
+            st.markdown(prompt_data['generation_process'])
     
     # For newly generated prompts, offer a quick test with a sample input
     if is_newly_generated:
@@ -303,6 +308,11 @@ def main_manager_view(prompts):
             if is_newly_generated:
                 st.markdown(f"#### 🆕 {row.get('task', 'Untitled')} (v{row.get('version', 1)}) - **Just Created!**")
                 st.success("✨ This is a newly generated prompt! It's currently being tested.")
+                
+                # Show generation process for newly created prompts
+                if row.get('generation_process'):
+                    with st.expander("🧠 View Generation Process", expanded=True):
+                        st.markdown(row['generation_process'])
             elif is_latest_improvement:
                 st.markdown(f"#### 🆕 {row.get('task', 'Untitled')} (v{row.get('version', 1)}) - **Just Improved!**")
                 st.success("✨ This prompt was just improved! Check the improvement results above.")
