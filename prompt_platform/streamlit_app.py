@@ -82,6 +82,12 @@ def main():
         from prompt_platform.ui_components import improve_prompt_dialog
         improve_prompt_dialog(st.session_state.improving_prompt_id)
 
+    # If viewing lineage is active, open the dialog immediately
+    if hasattr(st.session_state, 'viewing_lineage_id') and st.session_state.viewing_lineage_id:
+        # We need to import here to avoid a circular dependency
+        from prompt_platform.ui_components import view_lineage_dialog
+        view_lineage_dialog(st.session_state.viewing_lineage_id)
+
     # Draw UI
     st.markdown("<h1 class='main-header'>✨ Prompt Platform</h1>", unsafe_allow_html=True)
     
@@ -150,6 +156,33 @@ def main():
         - **BootstrapFewShotWithRandomSearch**: For moderate data (10-50)
         - **MIPROv2**: For larger datasets (50+ examples)
         - **Fallback**: Basic improvement if DSPy optimization fails
+        
+        #### **🚀 How to Use DSPy Improvement:**
+        
+        **1. Test Your Prompt First:**
+        - Click "🧪 Test" on any prompt
+        - Try different inputs and evaluate the outputs
+        - Use "👍 Good Example" for outputs you like
+        - Use "👎 Bad Example" for outputs that need improvement
+        
+        **2. Provide Feedback:**
+        - When you mark an output as "Bad Example"
+        - Enter the correct/desired output
+        - Add any specific critique or improvement suggestions
+        
+        **3. Trigger DSPy Improvement:**
+        - Click "✨ Improve" on the prompt
+        - Enter your improvement request (e.g., "Make it more concise")
+        - The system will automatically:
+          - Use DSPy optimization if you have training examples
+          - Fall back to basic improvement if needed
+        
+        **4. Review Results:**
+        - See detailed changes in a comparison table
+        - Test the improved prompt immediately
+        - Continue improving iteratively
+        
+        **💡 Pro Tip:** The more you test and provide feedback, the better DSPy can optimize your prompts using the accumulated training data!
         """)
     
     tab1, tab2, tab3 = st.tabs(["🚀 Generate", "📋 Manage", "📊 Dashboard"])

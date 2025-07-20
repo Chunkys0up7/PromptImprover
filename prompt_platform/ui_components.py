@@ -70,6 +70,27 @@ def improve_prompt_dialog(prompt_id):
     """Renders a dialog to improve an existing prompt."""
     st.title("Improve Prompt")
     
+    # Check if DSPy optimization is available
+    prompt_data = st.session_state.db.get_prompt(prompt_id)
+    has_training_data = False
+    training_count = 0
+    
+    if prompt_data and prompt_data.get('training_data'):
+        try:
+            training_data = json.loads(prompt_data['training_data'])
+            training_count = len(training_data) if isinstance(training_data, list) else 0
+            has_training_data = training_count > 0
+        except json.JSONDecodeError:
+            pass
+    
+    # Show DSPy status
+    if has_training_data:
+        st.success(f"🎯 **DSPy Optimization Available!** ({training_count} training examples)")
+        st.info("The system will use DSPy's systematic optimization with your training data for better results.")
+    else:
+        st.info("💡 **Basic Improvement Mode** - No training data available yet.")
+        st.info("Test your prompt and provide feedback to enable DSPy optimization!")
+    
     # API client check
     if not st.session_state.api_client or not st.session_state.api_client.is_configured:
         st.error("API client is not configured. Please check your API token in the environment variables.")
@@ -83,8 +104,13 @@ def improve_prompt_dialog(prompt_id):
         if st.button("Generate Improvement", use_container_width=True):
             if task_desc:
                 with st.status("🔄 Improving prompt...", expanded=True) as status:
-                    status.write("📝 Analyzing improvement request...")
-                    status.write("🧠 Generating enhanced prompt...")
+                    if has_training_data:
+                        status.write("🎯 Using DSPy optimization...")
+                        status.write("📊 Analyzing training data...")
+                        status.write("🧠 Running systematic optimization...")
+                    else:
+                        status.write("📝 Analyzing improvement request...")
+                        status.write("🧠 Generating enhanced prompt...")
                     status.write("💾 Saving new version...")
                     
                     run_async(improve_and_save_prompt(prompt_id, task_desc))
@@ -323,7 +349,8 @@ def main_manager_view(prompts):
                 
                 # Add a special improve button for newly generated prompts
                 if st.button("✨ Improve This Prompt", key=f"improve_new_{row['id']}", use_container_width=True):
-                    improve_prompt_dialog(row['id'])
+                    st.session_state.improving_prompt_id = row['id']
+                    st.rerun()
             elif is_latest_improvement:
                 st.markdown(f"#### 🆕 {row.get('task', 'Untitled')} (v{row.get('version', 1)}) - **Just Improved!**")
                 st.success("✨ This prompt was just improved! Check the improvement results above.")
@@ -350,12 +377,9 @@ def main_manager_view(prompts):
             if cols[1].button("✨ Improve", key=f"improve_{row['id']}", use_container_width=True):
                 # Only open improve dialog if no other dialog is active
                 if not st.session_state.get('testing_prompt_id'):
-                    # For newly generated prompts, ensure we're improving the correct one
-                    if is_newly_generated:
-                        # Clear the newly generated flag to prevent confusion
-                        if 'newly_generated_prompt' in st.session_state:
-                            st.session_state.newly_generated_prompt['should_open_test'] = False
-                    improve_prompt_dialog(row['id'])
+                    # Set the improving prompt ID to open the dialog on next rerun
+                    st.session_state.improving_prompt_id = row['id']
+                    st.rerun()
                 else:
                     st.warning("Please close the test dialog first.")
 
@@ -370,7 +394,8 @@ def main_manager_view(prompts):
             if cols[3].button("📜 Lineage", key=f"lineage_{row['id']}", use_container_width=True):
                 # Only open lineage dialog if no other dialog is active
                 if not st.session_state.get('testing_prompt_id'):
-                    view_lineage_dialog(row['lineage_id'])
+                    st.session_state.viewing_lineage_id = row['lineage_id']
+                    st.rerun()
                 else:
                     st.warning("Please close the test dialog first.")
             
