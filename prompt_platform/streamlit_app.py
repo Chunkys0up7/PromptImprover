@@ -93,6 +93,19 @@ def main():
     # Draw UI
     st.markdown("<h1 class='main-header'>✨ Prompt Platform</h1>", unsafe_allow_html=True)
     
+    # Quick GitHub toggle in header
+    from prompt_platform.github_integration import GitHubIntegration
+    github_integration = GitHubIntegration()
+    
+    if github_integration.is_enabled():
+        if github_integration.is_configured():
+            repo_info = github_integration.get_repository_info()
+            st.success(f"🔗 GitHub: {repo_info['owner']}/{repo_info['repo']}")
+        else:
+            st.warning("🔗 GitHub: Enabled but not configured")
+    else:
+        st.info("🔗 GitHub: Disabled")
+    
     # Add informational section about the system
     with st.expander("🧠 How Our AI-Powered Prompt Engineering Works", expanded=False):
         st.markdown("""
@@ -499,11 +512,14 @@ def main():
         
         with col1:
             st.markdown("**🔗 GitHub Integration:**")
-            if github_integration.is_configured():
-                repo_info = github_integration.get_repository_info()
-                st.success(f"✅ Connected to {repo_info['owner']}/{repo_info['repo']}")
+            if github_integration.is_enabled():
+                if github_integration.is_configured():
+                    repo_info = github_integration.get_repository_info()
+                    st.success(f"✅ Enabled - {repo_info['owner']}/{repo_info['repo']}")
+                else:
+                    st.warning("⚠️ Enabled but not configured")
             else:
-                st.error("❌ Not configured")
+                st.info("🔴 Disabled")
         
         with col2:
             st.markdown("**🤖 LLM Provider:**")

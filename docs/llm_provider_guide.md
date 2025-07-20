@@ -594,6 +594,7 @@ ANTHROPIC_TEMPERATURE=0.7
 # =============================================================================
 # GITHUB INTEGRATION
 # =============================================================================
+GITHUB_ENABLED=false  # Set to 'true' to enable GitHub integration
 GITHUB_TOKEN=your_github_token
 GITHUB_OWNER=your_github_username
 GITHUB_REPO=your_repo_name

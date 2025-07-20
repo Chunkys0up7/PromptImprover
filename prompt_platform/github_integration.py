@@ -23,10 +23,15 @@ class GitHubIntegration:
         self.github_token = os.getenv('GITHUB_TOKEN')
         self.default_owner = os.getenv('GITHUB_OWNER')
         self.default_repo = os.getenv('GITHUB_REPO')
+        self.enabled = os.getenv('GITHUB_ENABLED', 'false').lower() == 'true'
+        
+    def is_enabled(self) -> bool:
+        """Check if GitHub integration is enabled."""
+        return self.enabled
         
     def is_configured(self) -> bool:
         """Check if GitHub integration is properly configured."""
-        return bool(self.github_token and self.default_owner and self.default_repo)
+        return bool(self.enabled and self.github_token and self.default_owner and self.default_repo)
     
     def get_repository_info(self) -> Dict[str, str]:
         """Get current repository configuration."""
@@ -181,8 +186,29 @@ class GitHubIntegration:
         """Render GitHub settings UI and return configuration."""
         st.subheader("🔗 GitHub Integration")
         
+        # Main toggle for GitHub integration
+        github_enabled = st.toggle(
+            "Enable GitHub Integration",
+            value=self.enabled,
+            help="Turn GitHub integration on/off. When disabled, all GitHub features will be hidden."
+        )
+        
+        # Update the enabled state
+        self.enabled = github_enabled
+        os.environ['GITHUB_ENABLED'] = str(github_enabled).lower()
+        
+        if not github_enabled:
+            st.info("💡 GitHub integration is disabled. Enable it above to configure repository settings.")
+            return {
+                'enabled': False,
+                'configured': False
+            }
+        
+        # Show configuration status
         if not self.is_configured():
-            st.warning("GitHub integration not configured. Set environment variables or configure below.")
+            st.warning("⚠️ GitHub integration enabled but not fully configured. Configure below.")
+        else:
+            st.success("✅ GitHub integration is enabled and configured!")
         
         # GitHub configuration
         with st.expander("⚙️ GitHub Configuration", expanded=not self.is_configured()):
@@ -218,6 +244,7 @@ class GitHubIntegration:
                 if github_token and owner and repo_name:
                     st.success("✅ GitHub configuration looks good!")
                     return {
+                        'enabled': True,
                         'token': github_token,
                         'owner': owner,
                         'repo': repo_name,
@@ -226,9 +253,10 @@ class GitHubIntegration:
                     }
                 else:
                     st.error("❌ Please fill in all required fields.")
-                    return {'configured': False}
+                    return {'enabled': True, 'configured': False}
         
         return {
+            'enabled': True,
             'token': github_token or self.github_token,
             'owner': owner or self.default_owner,
             'repo': repo_name or self.default_repo,
@@ -240,47 +268,38 @@ def commit_prompt_with_github_option(prompt_data: Dict[str, Any]) -> bool:
     """Show GitHub commit option and handle the commit process."""
     github_integration = GitHubIntegration()
     
+    # Don't show anything if GitHub is disabled
+    if not github_integration.is_enabled():
+        return False
+    
     st.markdown("---")
     st.subheader("📤 Commit to GitHub")
     
     # Check if GitHub is configured
     if not github_integration.is_configured():
-        st.info("💡 Want to save your prompts to GitHub? Configure GitHub integration below.")
-        github_config = github_integration.get_github_settings_ui()
-        
-        if github_config.get('configured'):
-            # Update environment variables for this session
-            os.environ['GITHUB_TOKEN'] = github_config['token']
-            os.environ['GITHUB_OWNER'] = github_config['owner']
-            os.environ['GITHUB_REPO'] = github_config['repo']
-            github_integration.github_token = github_config['token']
-            github_integration.default_owner = github_config['owner']
-            github_integration.default_repo = github_config['repo']
+        st.info("💡 Want to save your prompts to GitHub? Configure GitHub integration in the Settings tab.")
+        return False
     
     # Show commit option
-    if github_integration.is_configured():
-        repo_info = github_integration.get_repository_info()
-        st.success(f"✅ Connected to: {repo_info['owner']}/{repo_info['repo']}")
-        
-        col1, col2 = st.columns([3, 1])
-        with col1:
-            st.info("💾 Your prompt can be committed to GitHub for version control and sharing.")
-        
-        with col2:
-            if st.button("🚀 Commit to GitHub", key="commit_github", use_container_width=True):
-                with st.spinner("Committing to GitHub..."):
-                    result = github_integration.commit_prompt_to_github(prompt_data)
-                    
-                    if result['success']:
-                        st.success(f"✅ {result['message']}")
-                        if 'url' in result:
-                            st.markdown(f"🔗 [View on GitHub]({result['url']})")
-                        return True
-                    else:
-                        st.error(f"❌ {result['error']}")
-                        return False
-    else:
-        st.warning("⚠️ GitHub integration not configured. Configure it above to enable commits.")
-        return False
+    repo_info = github_integration.get_repository_info()
+    st.success(f"✅ Connected to: {repo_info['owner']}/{repo_info['repo']}")
+    
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        st.info("💾 Your prompt can be committed to GitHub for version control and sharing.")
+    
+    with col2:
+        if st.button("🚀 Commit to GitHub", key="commit_github", use_container_width=True):
+            with st.spinner("Committing to GitHub..."):
+                result = github_integration.commit_prompt_to_github(prompt_data)
+                
+                if result['success']:
+                    st.success(f"✅ {result['message']}")
+                    if 'url' in result:
+                        st.markdown(f"🔗 [View on GitHub]({result['url']})")
+                    return True
+                else:
+                    st.error(f"❌ {result['error']}")
+                    return False
     
     return False 

@@ -15,48 +15,69 @@ A professional, Streamlit-based platform for creating, testing, versioning, and 
 
 ## 🚀 Quick Start
 
-1.  **Clone the repository:**
-    ```bash
-    git clone <repository-url>
-    cd <repository-directory>
-    ```
+1. **Clone the repository:**
+   ```bash
+   git clone <repository-url>
+   cd Prompt
+   ```
 
-2.  **Install dependencies:**
-    For production, install the core dependencies:
-    ```bash
-    pip install -r requirements.txt
-    ```
-    
-    For a full development environment, install both sets of requirements:
-    ```bash
-    pip install -r requirements.txt -r requirements-dev.txt
-    ```
+2. **Install dependencies:**
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-3.  **Configure your environment:**
-    Create a `.env` file in the root directory and add your API credentials:
-    ```env
-    # .env
-    API_TOKEN="your_perplexity_or_openai_api_key"
-    API_BASE_URL="https://api.perplexity.ai" # Or your custom API base
-    DEFAULT_MODEL="llama-3-sonar-large-32k-online" # Or another supported model
-    DATABASE_URL="sqlite:///prompt_storage.db" # Default SQLite database
-    ```
-    
-    **Supported Models**:
-    - `llama-3-sonar-large-32k-online` (Default)
-    - `llama-3-sonar-large-32k` (Offline version)
-    - `llama-3-sonar-medium-32k`
-    - `llama-3-sonar-medium-32k-online`
-    - `llama-3-sonar-small-32k`
-    - `llama-3-sonar-small-32k-online`
-    
-    See `prompt_platform/config.py` for all supported models.
+3. **Set up environment variables:**
+   ```bash
+   # Copy the example environment file
+   cp .env.example .env
+   
+   # Edit .env with your API keys
+   PERPLEXITY_API_KEY=your_api_key_here
+   ```
 
-4.  **Run the Streamlit application:**
-    ```bash
-    streamlit run prompt_platform/streamlit_app.py
-    ```
-    The application will open in your web browser.
+4. **Run the application:**
+   ```bash
+   streamlit run prompt_platform/streamlit_app.py
+   ```
+
+## 🔗 GitHub Integration
+
+The platform includes optional GitHub integration for version control and sharing of prompts.
+
+### Quick Toggle
+
+**Enable/Disable GitHub integration:**
+```bash
+# Toggle on/off
+python scripts/toggle_github.py
+
+# Check status
+python scripts/toggle_github.py status
+```
+
+**Or use the UI:**
+1. Go to the **Settings** tab
+2. Toggle **"Enable GitHub Integration"**
+3. Configure your repository settings
+
+### Environment Variables
+
+```bash
+# GitHub Integration (optional)
+GITHUB_ENABLED=false  # Set to 'true' to enable
+GITHUB_TOKEN=your_github_token
+GITHUB_OWNER=your_github_username
+GITHUB_REPO=your_repo_name
+```
+
+### Features
+
+- ✅ **One-click toggle** in Settings
+- ✅ **Automatic prompt formatting** for GitHub
+- ✅ **Version control** with commit history
+- ✅ **Repository configuration** UI
+- ✅ **Status indicators** throughout the app
+- ✅ **Hidden when disabled** - no UI clutter
 
 ## Project Structure
 
