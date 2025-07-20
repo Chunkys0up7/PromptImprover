@@ -85,6 +85,66 @@ def main():
     # Draw UI
     st.markdown("<h1 class='main-header'>✨ Prompt Platform</h1>", unsafe_allow_html=True)
     
+    # Add informational section about the system
+    with st.expander("🧠 How Our AI-Powered Prompt Engineering Works", expanded=False):
+        st.markdown("""
+        ### 🎯 **Our Systematic Approach to Prompt Engineering**
+        
+        We use advanced AI-powered methodologies to create and improve prompts that are both effective and reliable.
+        
+        #### **🚀 Prompt Generation Process:**
+        
+        **1. 📋 Systematic Analysis**
+        - We analyze your task description using systematic prompt engineering principles
+        - Identify key objectives, constraints, and desired outcomes
+        - Apply proven frameworks for prompt structure and clarity
+        
+        **2. 🧠 AI-Powered Design**
+        - Our AI generates prompts using systematic prompt engineering methodologies
+        - Incorporates best practices for clarity, specificity, and effectiveness
+        - Ensures prompts are well-structured and actionable
+        
+        **3. 📊 Quality Assurance**
+        - Each prompt includes detailed generation process documentation
+        - Shows the reasoning behind design decisions
+        - Enables transparency and continuous improvement
+        
+        #### **✨ Prompt Improvement Process:**
+        
+        **1. 🔍 Analysis & Feedback**
+        - We analyze testing results and user feedback
+        - Identify areas for improvement based on actual performance
+        - Apply systematic prompt engineering principles for enhancement
+        
+        **2. 🚀 AI-Powered Enhancement**
+        - Our AI applies advanced reasoning to improve prompt effectiveness
+        - Maintains core functionality while enhancing specific aspects
+        - Uses systematic methodologies for optimal prompt structure
+        
+        **3. 📈 Version Control & Lineage**
+        - Every improvement creates a new version with full history
+        - Track changes and improvements over time
+        - Enable continuous learning and optimization
+        
+        #### **🎨 Key Methodologies:**
+        
+        - **Systematic Prompt Design**: Structured approach to prompt creation
+        - **AI-Powered Enhancement**: Advanced reasoning for prompt optimization
+        - **Version Tracking**: Complete history of all changes and improvements
+        - **Continuous Learning**: Iterative improvement based on real-world testing
+        
+        #### **💡 Best Practices We Apply:**
+        
+        - **Clarity**: Clear, unambiguous instructions
+        - **Specificity**: Detailed, actionable guidance
+        - **Context**: Appropriate role and tone definition
+        - **Safety**: Reliable and trustworthy outputs
+        - **Flexibility**: Adaptable to different use cases
+        
+        ---
+        *Our system combines the best of systematic prompt engineering with AI-powered optimization to create prompts that consistently deliver high-quality results.*
+        """)
+    
     tab1, tab2, tab3 = st.tabs(["🚀 Generate", "📋 Manage", "📊 Dashboard"])
 
     with tab1:
@@ -97,6 +157,30 @@ def main():
         with st.container():
             st.markdown("### Create a New Prompt")
             st.markdown("Describe what you want your AI assistant to do. Be specific about the task, role, and expected output.")
+            
+            # Add helpful tips
+            with st.expander("💡 Tips for Writing Effective Task Descriptions", expanded=False):
+                st.markdown("""
+                **🎯 Be Specific:**
+                - Clearly define the task and desired outcome
+                - Specify the AI's role (e.g., "expert consultant", "creative writer")
+                - Include any constraints or requirements
+                
+                **📋 Include Context:**
+                - Describe the target audience or use case
+                - Mention tone, style, or format preferences
+                - Specify any technical requirements
+                
+                **✅ Good Examples:**
+                - "Create a prompt for a business consultant to help startups develop marketing strategies"
+                - "Design a prompt for a creative writer to generate engaging blog posts about technology"
+                - "Build a prompt for a data analyst to explain complex statistics in simple terms"
+                
+                **❌ Avoid:**
+                - Vague descriptions like "make it better" or "improve this"
+                - Too many requirements in one prompt
+                - Unrealistic expectations or conflicting instructions
+                """)
             
             with st.form("new_prompt_form", clear_on_submit=True):
                 task = sanitize_text(st.text_area(
@@ -240,6 +324,47 @@ def main():
         
         # Display improvement results if available
         display_improvement_results("manage")
+        
+        # Add workflow guidance
+        with st.expander("🔄 Understanding the Testing & Improvement Workflow", expanded=False):
+            st.markdown("""
+            ### 🧪 **How to Test and Improve Your Prompts**
+            
+            **1. 🎯 Test Your Prompts:**
+            - Click the "Test" button on any prompt
+            - Try different inputs to see how the prompt performs
+            - Evaluate the quality and relevance of outputs
+            
+            **2. 📊 Provide Feedback:**
+            - Use "👍 Good Example" for outputs you like
+            - Use "👎 Bad Example" for outputs that need improvement
+            - Provide specific feedback on what should be changed
+            
+            **3. ✨ Improve Based on Testing:**
+            - Click "Improve" to refine prompts based on feedback
+            - Our AI analyzes your feedback and applies systematic improvements
+            - Each improvement creates a new version with full history
+            
+            **4. 📈 Track Progress:**
+            - View the complete lineage of your prompts
+            - See how each version improves upon the previous
+            - Monitor performance over time
+            
+            ### 💡 **Best Practices for Testing:**
+            
+            - **Test with realistic inputs** that match your use case
+            - **Try edge cases** to see how the prompt handles unusual requests
+            - **Evaluate consistency** across multiple test runs
+            - **Consider the target audience** when assessing outputs
+            - **Focus on the most important aspects** for your specific needs
+            
+            ### 🔄 **Continuous Improvement Cycle:**
+            
+            1. **Generate** → Create initial prompt
+            2. **Test** → Evaluate with real inputs
+            3. **Improve** → Refine based on feedback
+            4. **Repeat** → Continue testing and improving
+            """)
         
         if st.button("🔄 Refresh Prompts", use_container_width=True):
             st.cache_data.clear()
