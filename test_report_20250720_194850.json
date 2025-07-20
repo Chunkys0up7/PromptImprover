@@ -1,0 +1,101 @@
+{
+  "test_date": "2025-07-20T19:48:50.965046",
+  "summary": {
+    "total_tests": 15,
+    "passed_tests": 13,
+    "failed_tests": 2,
+    "success_rate": 86.66666666666667
+  },
+  "results": [
+    {
+      "test": "Database Save Prompt",
+      "success": true,
+      "details": "Successfully saved test prompt",
+      "timestamp": "2025-07-20T19:48:50.952629"
+    },
+    {
+      "test": "Database Get Prompt",
+      "success": true,
+      "details": "Successfully retrieved test prompt",
+      "timestamp": "2025-07-20T19:48:50.953665"
+    },
+    {
+      "test": "Database Operations",
+      "success": false,
+      "details": "Exception: PromptDB.add_example() takes 2 positional arguments but 5 were given",
+      "timestamp": "2025-07-20T19:48:50.953665"
+    },
+    {
+      "test": "DSPy Configuration",
+      "success": true,
+      "details": "DSPy is properly configured",
+      "timestamp": "2025-07-20T19:48:50.954676"
+    },
+    {
+      "test": "DSPy Training Data Preparation",
+      "success": true,
+      "details": "Prepared 2 training examples",
+      "timestamp": "2025-07-20T19:48:50.954676"
+    },
+    {
+      "test": "JSON Handling - Empty JSON array",
+      "success": true,
+      "details": "Parsed successfully: <class 'list'>",
+      "timestamp": "2025-07-20T19:48:50.955669"
+    },
+    {
+      "test": "JSON Handling - Valid JSON array",
+      "success": true,
+      "details": "Parsed successfully: <class 'list'>",
+      "timestamp": "2025-07-20T19:48:50.955669"
+    },
+    {
+      "test": "JSON Handling - Python list",
+      "success": true,
+      "details": "Handled list: 1 items",
+      "timestamp": "2025-07-20T19:48:50.955669"
+    },
+    {
+      "test": "JSON Handling - None value",
+      "success": true,
+      "details": "Handled None value",
+      "timestamp": "2025-07-20T19:48:50.955669"
+    },
+    {
+      "test": "JSON Handling - Invalid JSON string",
+      "success": true,
+      "details": "Correctly failed on invalid JSON",
+      "timestamp": "2025-07-20T19:48:50.956668"
+    },
+    {
+      "test": "API Client Configuration",
+      "success": true,
+      "details": "API client is properly configured",
+      "timestamp": "2025-07-20T19:48:50.956668"
+    },
+    {
+      "test": "API Client Initialization",
+      "success": true,
+      "details": "API client initialized successfully",
+      "timestamp": "2025-07-20T19:48:50.956668"
+    },
+    {
+      "test": "Prompt Generator Initialization",
+      "success": true,
+      "details": "Prompt generator initialized successfully",
+      "timestamp": "2025-07-20T19:48:50.957673"
+    },
+    {
+      "test": "Prompt Generator",
+      "success": false,
+      "details": "Exception: 2 validation errors for PromptSchema\nid\n  Field required [type=missing, input_value={'task': 'Test task', 'pr...rovement_request': None}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.11/v/missing\ncreated_at\n  Field required [type=missing, input_value={'task': 'Test task', 'pr...rovement_request': None}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.11/v/missing",
+      "timestamp": "2025-07-20T19:48:50.958671"
+    },
+    {
+      "test": "Test Data Cleanup",
+      "success": true,
+      "details": "Cleanup completed",
+      "timestamp": "2025-07-20T19:48:50.959657"
+    }
+  ]
+}

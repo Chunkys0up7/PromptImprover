@@ -148,20 +148,29 @@ Error Count: {self.error_counts.get(f'{operation}_{error_type}', 1)}
                 st.code(traceback.format_exc(), language='python')
     
     def handle_async_operation(self, coro, operation_name: str, timeout: int = 30):
-        """Handle async operations with proper error handling"""
+        """Handle async operations with proper error handling using existing event loop"""
         try:
             import asyncio
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
             
+            # Get the current event loop or create one if none exists
             try:
-                result = asyncio.wait_for(coro, timeout=timeout)
+                loop = asyncio.get_running_loop()
+                # If we're already in an event loop, we need to run the coroutine differently
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    future = executor.submit(asyncio.run, coro)
+                    result = future.result(timeout=timeout)
+                    return result
+            except RuntimeError:
+                # No event loop running, we can create one safely
+                result = asyncio.run(coro)
                 return result
-            except asyncio.TimeoutError:
-                raise TimeoutError(f"Operation {operation_name} timed out after {timeout} seconds")
-            finally:
-                loop.close()
                 
+        except asyncio.TimeoutError:
+            timeout_error = TimeoutError(f"Operation {operation_name} timed out after {timeout} seconds")
+            self._log_error(operation_name, timeout_error)
+            self._show_user_friendly_error(operation_name, timeout_error)
+            return None
         except Exception as e:
             self._log_error(operation_name, e)
             self._show_user_friendly_error(operation_name, e)

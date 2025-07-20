@@ -1,321 +1,441 @@
-import os
-import json
-import logging
-import time
-from contextlib import contextmanager
-from typing import Dict, Any, List, Optional
-from sqlalchemy import (
-    create_engine, Column, String, Integer, Float, Text, 
-    inspect, select, func, DateTime, ForeignKey
-)
-from sqlalchemy.orm import sessionmaker, Session, declarative_base, relationship
-from jsonschema import validate, ValidationError
-from datetime import datetime
+"""
+Database management and ORM for the Prompt Platform.
 
-from .config import APP_CONFIG
-from .schemas import Prompt as PromptSchema
+This module provides SQLAlchemy-based database operations for prompts,
+versions, and training examples with comprehensive data validation.
+"""
+import logging
+import json
+from typing import List, Dict, Optional, Any, Union
+from datetime import datetime, timedelta
+from sqlalchemy import create_engine, Column, String, Integer, Float, Text, DateTime, ForeignKey, func
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker, Session, relationship
+from sqlalchemy.exc import SQLAlchemyError
+from contextlib import contextmanager
+
+# Import our comprehensive schemas
+from .schemas import (
+    PromptSchema, ExampleSchema, validate_prompt_data, 
+    validate_example_data, validate_training_data_format
+)
 
 logger = logging.getLogger(__name__)
 
-# --- Database Setup ---
-DATABASE_URL = APP_CONFIG.get("database_url", "sqlite:///prompt_storage.db")
 Base = declarative_base()
 
-if DATABASE_URL.startswith("postgresql"):
-    engine = create_engine(DATABASE_URL, pool_size=10, max_overflow=20, pool_recycle=3600, pool_pre_ping=True)
-else:
-    # Use StaticPool for SQLite to prevent issues with Streamlit's threading
-    from sqlalchemy.pool import StaticPool
-    engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False}, poolclass=StaticPool)
-
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-# --- JSON Schema for Training Data Validation ---
-TRAINING_DATA_SCHEMA = {
-    "type": "array",
-    "items": {
-        "type": "object",
-        "properties": {"input": {"type": "string", "minLength": 1}, "output": {"type": "string", "minLength": 1}},
-        "required": ["input", "output"],
-        "additionalProperties": False
-    }
-}
-
 # --- Database Models ---
-class Example(Base):
-    __tablename__ = 'examples'
-    id = Column(Integer, primary_key=True)
-    prompt_id = Column(String, ForeignKey('prompts.id'), nullable=False)
-    input_text = Column(Text, nullable=False)
-    output_text = Column(Text, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    critique = Column(Text, nullable=True) # Optional feedback
-
-    prompt = relationship("Prompt", back_populates="examples")
 
 class Prompt(Base):
+    """SQLAlchemy model for prompts with comprehensive validation"""
     __tablename__ = 'prompts'
+    
     id = Column(String, primary_key=True)
     lineage_id = Column(String, nullable=False, index=True)
     parent_id = Column(String, nullable=True)
-    task = Column(String, nullable=False)
+    task = Column(Text, nullable=False)
     prompt = Column(Text, nullable=False)
-    version = Column(Integer, nullable=False)
-    training_data = Column(Text, default='[]')
-    improvement_request = Column(Text, nullable=True)  # Store the improvement request
-    generation_process = Column(Text, nullable=True)  # Store the generation process explanation
-    created_at = Column(Float, default=time.time, index=True)
+    version = Column(Integer, nullable=False, default=1)
+    training_data = Column(Text, nullable=False, default='[]')
+    improvement_request = Column(Text, nullable=True)
+    generation_process = Column(Text, nullable=True)
+    created_at = Column(Float, nullable=False)
     model = Column(String, nullable=True)
-
+    
+    # Relationship to examples
     examples = relationship("Example", back_populates="prompt", cascade="all, delete-orphan")
-
+    
     def to_dict(self) -> Dict[str, Any]:
-        return PromptSchema.from_orm(self).model_dump()
+        """Convert model to dictionary with validation"""
+        data = {
+            'id': self.id,
+            'lineage_id': self.lineage_id,
+            'parent_id': self.parent_id,
+            'task': self.task,
+            'prompt': self.prompt,
+            'version': self.version,
+            'training_data': self.training_data,
+            'improvement_request': self.improvement_request,
+            'generation_process': self.generation_process,
+            'created_at': self.created_at,
+            'model': self.model
+        }
+        # Validate the data using our schema
+        validated = PromptSchema(**data)
+        return validated.dict()
 
+class Example(Base):
+    """SQLAlchemy model for training examples with validation"""
+    __tablename__ = 'examples'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    prompt_id = Column(String, ForeignKey('prompts.id'), nullable=False)
+    input_text = Column(Text, nullable=False)
+    output_text = Column(Text, nullable=False)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    critique = Column(Text, nullable=True)
+    
+    # Relationship to prompt
+    prompt = relationship("Prompt", back_populates="examples")
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert model to dictionary with validation"""
+        data = {
+            'id': self.id,
+            'prompt_id': self.prompt_id,
+            'input_text': self.input_text,
+            'output_text': self.output_text,
+            'created_at': self.created_at,
+            'critique': self.critique
+        }
+        # Validate the data using our schema
+        validated = ExampleSchema(**data)
+        return validated.dict()
 
-# --- Main Database Class ---
+# --- Database Manager ---
+
 class PromptDB:
-    def __init__(self, session_factory: Optional[sessionmaker] = None):
-        Base.metadata.create_all(engine)
-        self._session_factory = session_factory or SessionLocal
-        self._is_test = session_factory is not None
-
+    """Database manager with comprehensive validation and error handling"""
+    
+    def __init__(self, database_url: str = None):
+        """Initialize database with validation"""
+        if database_url is None:
+            database_url = "sqlite:///prompts.db"
+        
+        self.engine = create_engine(
+            database_url,
+            pool_size=10,
+            max_overflow=20,
+            pool_recycle=3600,
+            pool_pre_ping=True
+        )
+        
+        self.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)
+        
+        # Create tables
+        Base.metadata.create_all(bind=self.engine)
+        logger.info(f"Database initialized with URL: {database_url}")
+    
     @contextmanager
-    def session_scope(self) -> Session:
-        session = self._session_factory()
+    def session_scope(self):
+        """Provide a transactional scope around a series of operations"""
+        session = self.SessionLocal()
         try:
             yield session
             session.commit()
-        except Exception:
+        except Exception as e:
             session.rollback()
+            logger.error(f"Database session error: {e}")
             raise
         finally:
             session.close()
-
-    def save_prompt(self, prompt_data: Dict[str, Any]) -> Dict[str, Any]:
-        if not isinstance(prompt_data, dict):
-            if hasattr(prompt_data, 'model_dump'):
-                prompt_data = prompt_data.model_dump()
-            else:
-                raise ValueError("prompt_data must be a dictionary or a Pydantic model.")
-        
-        validated_data = PromptSchema(**prompt_data)
-        
-        with self.session_scope() as session:
-            db_data = validated_data.model_dump()
-            db_data['training_data'] = json.dumps(db_data['training_data'])
+    
+    def save_prompt(self, prompt_data: Dict[str, Any]) -> bool:
+        """Save prompt with comprehensive validation"""
+        try:
+            # Validate prompt data using our schema
+            validated_data = validate_prompt_data(prompt_data)
             
-            prompt_obj = Prompt(**db_data)
-            session.add(prompt_obj)
-            session.flush()
-            session.refresh(prompt_obj)
-            
-            saved_dict = prompt_obj.to_dict()
-
-        return saved_dict
-
-    def get_prompt(self, prompt_id: str) -> Optional[dict]:
-        with self.session_scope() as session:
-            prompt = session.get(Prompt, prompt_id)
-            return prompt.to_dict() if prompt else None
-
-    def get_all_prompts(self) -> List[dict]:
-        with self.session_scope() as session:
-            stmt = select(Prompt).order_by(Prompt.created_at.desc())
-            return [p.to_dict() for p in session.scalars(stmt).all()]
-
-    def get_prompts_by_lineage(self, lineage_id: str) -> List[dict]:
-        with self.session_scope() as session:
-            stmt = (
-                select(Prompt)
-                .filter_by(lineage_id=lineage_id)
-                .order_by(Prompt.version)
-            )
-            return [p.to_dict() for p in session.scalars(stmt).all()]
-
+            with self.session_scope() as session:
+                # Check if prompt already exists
+                existing = session.query(Prompt).filter(Prompt.id == validated_data.id).first()
+                
+                if existing:
+                    # Update existing prompt
+                    for key, value in validated_data.dict().items():
+                        if key != 'id':  # Don't update the ID
+                            setattr(existing, key, value)
+                    logger.info(f"Updated existing prompt: {validated_data.id}")
+                else:
+                    # Create new prompt
+                    prompt = Prompt(**validated_data.dict())
+                    session.add(prompt)
+                    logger.info(f"Created new prompt: {validated_data.id}")
+                
+                return True
+                
+        except Exception as e:
+            logger.error(f"Failed to save prompt: {e}")
+            return False
+    
+    def get_prompt(self, prompt_id: str) -> Optional[Dict[str, Any]]:
+        """Get prompt by ID with validation"""
+        try:
+            with self.session_scope() as session:
+                prompt = session.query(Prompt).filter(Prompt.id == prompt_id).first()
+                
+                if prompt:
+                    return prompt.to_dict()
+                return None
+                
+        except Exception as e:
+            logger.error(f"Failed to get prompt {prompt_id}: {e}")
+            return None
+    
+    def get_all_prompts(self) -> List[Dict[str, Any]]:
+        """Get all prompts with validation"""
+        try:
+            with self.session_scope() as session:
+                prompts = session.query(Prompt).order_by(Prompt.created_at.desc()).all()
+                return [prompt.to_dict() for prompt in prompts]
+                
+        except Exception as e:
+            logger.error(f"Failed to get all prompts: {e}")
+            return []
+    
+    def get_prompts_by_lineage(self, lineage_id: str) -> List[Dict[str, Any]]:
+        """Get all prompts in a lineage with validation"""
+        try:
+            with self.session_scope() as session:
+                prompts = session.query(Prompt).filter(
+                    Prompt.lineage_id == lineage_id
+                ).order_by(Prompt.version.asc()).all()
+                
+                return [prompt.to_dict() for prompt in prompts]
+                
+        except Exception as e:
+            logger.error(f"Failed to get prompts for lineage {lineage_id}: {e}")
+            return []
+    
     def delete_prompt_lineage(self, lineage_id: str) -> bool:
-        with self.session_scope() as session:
-            prompts = session.scalars(select(Prompt).filter_by(lineage_id=lineage_id)).all()
-            if not prompts:
-                return False
-            for prompt in prompts:
-                session.delete(prompt)
-            return True
-
-    def add_training_example(self, prompt_id: str, example: Dict[str, str]) -> bool:
-        with self.session_scope() as session:
-            prompt = session.get(Prompt, prompt_id)
-            if not prompt:
-                return False
+        """Delete entire prompt lineage"""
+        try:
+            with self.session_scope() as session:
+                prompts = session.query(Prompt).filter(Prompt.lineage_id == lineage_id).all()
+                
+                for prompt in prompts:
+                    session.delete(prompt)
+                
+                logger.info(f"Deleted lineage {lineage_id} with {len(prompts)} prompts")
+                return True
+                
+        except Exception as e:
+            logger.error(f"Failed to delete lineage {lineage_id}: {e}")
+            return False
+    
+    def add_example(self, example_data: Dict[str, Any]) -> bool:
+        """Add training example with validation"""
+        try:
+            # Validate example data using our schema
+            validated_data = validate_example_data(example_data)
             
-            training_data = json.loads(prompt.training_data or '[]')
-            training_data.append(example)
-            validate(instance=training_data, schema=TRAINING_DATA_SCHEMA)
-            prompt.training_data = json.dumps(training_data, indent=2)
-            return True
-            
-    def add_example(self, prompt_id: str, input_text: str, output_text: str, critique: Optional[str] = None) -> dict:
-        """Adds a new training example to the database."""
-        with self.session_scope() as session:
-            example = Example(
-                prompt_id=prompt_id,
-                input_text=input_text,
-                output_text=output_text,
-                critique=critique
-            )
-            session.add(example)
-            session.commit()
-            logger.info(f"Added new example for prompt_id {prompt_id} with critique: {bool(critique)}")
-            return {
-                "id": example.id,
-                "prompt_id": example.prompt_id,
-                "input_text": example.input_text,
-                "output_text": example.output_text,
-                "critique": example.critique
-            }
-
-    def get_examples(self, prompt_id: int) -> List[dict]:
-        """Retrieves all examples for a given prompt."""
-        with self.session_scope() as session:
-            examples = session.scalars(select(Example).filter_by(prompt_id=prompt_id)).all()
-            return [{"id": e.id, "prompt_id": e.prompt_id, "input_text": e.input_text, "output_text": e.output_text, "critique": e.critique} for e in examples]
-
-    def add_correction(self, prompt_id: str, correction_data: Dict[str, str]) -> None:
-        """Saves a new correction and its associated data as an Example."""
-        self.add_example(
-            prompt_id=prompt_id,
-            input_text=correction_data['user_input'],
-            output_text=correction_data['bad_output'],
-            critique=correction_data.get('critique') or correction_data.get('desired_output')
-        )
-
+            with self.session_scope() as session:
+                example = Example(**validated_data.dict())
+                session.add(example)
+                logger.info(f"Added example for prompt: {validated_data.prompt_id}")
+                return True
+                
+        except Exception as e:
+            logger.error(f"Failed to add example: {e}")
+            return False
+    
+    def get_examples(self, prompt_id: str) -> List[Dict[str, Any]]:
+        """Get training examples for a prompt with validation"""
+        try:
+            with self.session_scope() as session:
+                examples = session.query(Example).filter(
+                    Example.prompt_id == prompt_id
+                ).order_by(Example.created_at.asc()).all()
+                
+                return [example.to_dict() for example in examples]
+                
+        except Exception as e:
+            logger.error(f"Failed to get examples for prompt {prompt_id}: {e}")
+            return []
+    
+    def delete_example(self, example_id: int) -> bool:
+        """Delete training example"""
+        try:
+            with self.session_scope() as session:
+                example = session.query(Example).filter(Example.id == example_id).first()
+                
+                if example:
+                    session.delete(example)
+                    logger.info(f"Deleted example: {example_id}")
+                    return True
+                return False
+                
+        except Exception as e:
+            logger.error(f"Failed to delete example {example_id}: {e}")
+            return False
+    
     # --- Dashboard Aggregation Methods ---
-    def get_kpi_metrics(self) -> Dict[str, Any]:
-        """Calculates key performance indicators for the dashboard."""
-        with self.session_scope() as session:
-            total_prompts = session.query(Prompt).distinct(Prompt.lineage_id).count()
-            total_versions = session.query(Prompt).count()
-            total_tests = session.query(Example).count()
-            prompts_with_feedback = session.query(Example).distinct(Example.prompt_id).count()
-            avg_versions = total_versions / total_prompts if total_prompts > 0 else 0
-            feedback_ratio = prompts_with_feedback / total_prompts if total_prompts > 0 else 0
+    
+    def get_performance_stats(self) -> Dict[str, Any]:
+        """Get comprehensive performance statistics"""
+        try:
+            with self.session_scope() as session:
+                # Total counts
+                total_prompts = session.query(func.count(Prompt.id)).scalar()
+                total_examples = session.query(func.count(Example.id)).scalar()
+                total_lineages = session.query(func.count(func.distinct(Prompt.lineage_id))).scalar()
+                
+                # Average versions per lineage
+                avg_versions = session.query(
+                    func.avg(func.count(Prompt.id))
+                ).group_by(Prompt.lineage_id).scalar() or 0
+                
+                return {
+                    'total_prompts': total_prompts,
+                    'total_examples': total_examples,
+                    'total_lineages': total_lineages,
+                    'avg_versions_per_lineage': float(avg_versions)
+                }
+                
+        except Exception as e:
+            logger.error(f"Failed to get performance stats: {e}")
             return {
-                "total_prompts": total_prompts,
-                "avg_versions": avg_versions,
-                "total_tests": total_tests,
-                "feedback_ratio": feedback_ratio,
+                'total_prompts': 0,
+                'total_examples': 0,
+                'total_lineages': 0,
+                'avg_versions_per_lineage': 0.0
             }
-
-    def count_prompts_by_date(self) -> List[Dict[str, Any]]:
-        """Counts the number of prompts created per day."""
-        with self.session_scope() as session:
-            if session.bind.dialect.name == 'postgresql':
-                date_func = func.date_trunc('day', func.to_timestamp(Prompt.created_at))
-            else: 
-                date_func = func.date(func.datetime(Prompt.created_at, 'unixepoch'))
-            stmt = (
-                select(date_func.label('date'), func.count(Prompt.id).label('count'))
-                .group_by('date')
-                .order_by('date')
-            )
-            return [{'date': row.date, 'count': row.count} for row in session.execute(stmt)]
-            
-    def count_examples_by_date(self) -> List[Dict[str, Any]]:
-        """Counts the cumulative number of training examples added per day."""
-        with self.session_scope() as session:
-            if session.bind.dialect.name == 'postgresql':
-                date_func = func.date_trunc('day', func.to_timestamp(Prompt.created_at))
-            else: # Assume SQLite
-                date_func = func.date(func.datetime(Prompt.created_at, 'unixepoch'))
-
-            stmt = (
-                select(date_func.label('date'), func.sum(func.json_array_length(Prompt.training_data)).label('examples'))
-                .where(func.json_array_length(Prompt.training_data) > 0)
-                .group_by('date')
-                .order_by('date')
-            )
-            return [{'date': row.date, 'examples': row.examples or 0} for row in session.execute(stmt)]
-
-    def count_versions_per_lineage(self) -> List[Dict[str, Any]]:
-        """Counts the number of versions for each prompt lineage."""
-        with self.session_scope() as session:
-            stmt = (
-                select(Prompt.lineage_id, func.count(Prompt.id).label('versions'))
-                .group_by(Prompt.lineage_id)
-                .order_by(Prompt.lineage_id)
-            )
-            return [{'lineage_id': row.lineage_id, 'versions': row.versions} for row in session.execute(stmt)]
     
-    def get_recent_prompts(self, limit: int = 5) -> List[Dict[str, Any]]:
-        """Gets the most recent prompts with their names and basic info."""
-        with self.session_scope() as session:
-            stmt = (
-                select(Prompt)
-                .order_by(Prompt.created_at.desc())
-                .limit(limit)
-            )
-            prompts = session.scalars(stmt).all()
-            return [prompt.to_dict() for prompt in prompts]
+    def get_recent_prompts(self, limit: int = 10) -> List[Dict[str, Any]]:
+        """Get recent prompts for dashboard"""
+        try:
+            with self.session_scope() as session:
+                prompts = session.query(Prompt).order_by(
+                    Prompt.created_at.desc()
+                ).limit(limit).all()
+                
+                return [prompt.to_dict() for prompt in prompts]
+                
+        except Exception as e:
+            logger.error(f"Failed to get recent prompts: {e}")
+            return []
     
-    def get_top_prompts_by_versions(self, limit: int = 5) -> List[Dict[str, Any]]:
-        """Gets prompts with the most versions (most improved)."""
-        with self.session_scope() as session:
-            stmt = (
-                select(Prompt.lineage_id, func.count(Prompt.id).label('version_count'))
-                .group_by(Prompt.lineage_id)
-                .order_by(func.count(Prompt.id).desc())
-                .limit(limit)
-            )
-            results = session.execute(stmt).all()
-            
-            # Get the latest version of each prompt
-            top_prompts = []
-            for result in results:
-                latest_prompt = session.scalars(
-                    select(Prompt)
-                    .filter_by(lineage_id=result.lineage_id)
-                    .order_by(Prompt.version.desc())
-                    .limit(1)
-                ).first()
-                if latest_prompt:
-                    top_prompts.append({
-                        'lineage_id': result.lineage_id,
-                        'task': latest_prompt.task,
-                        'version_count': result.version_count,
-                        'latest_version': latest_prompt.version,
-                        'created_at': latest_prompt.created_at
-                    })
-            return top_prompts
+    def get_top_prompts(self, limit: int = 5) -> List[Dict[str, Any]]:
+        """Get top prompts by version count"""
+        try:
+            with self.session_scope() as session:
+                # Subquery to count versions per lineage
+                version_counts = session.query(
+                    Prompt.lineage_id,
+                    func.count(Prompt.id).label('version_count')
+                ).group_by(Prompt.lineage_id).subquery()
+                
+                # Get prompts with highest version counts
+                top_prompts = session.query(Prompt).join(
+                    version_counts, Prompt.lineage_id == version_counts.c.lineage_id
+                ).order_by(
+                    version_counts.c.version_count.desc()
+                ).limit(limit).all()
+                
+                return [prompt.to_dict() for prompt in top_prompts]
+                
+        except Exception as e:
+            logger.error(f"Failed to get top prompts: {e}")
+            return []
     
-    def get_prompt_performance_stats(self) -> Dict[str, Any]:
-        """Gets detailed performance statistics for prompts."""
-        with self.session_scope() as session:
-            total_prompts = session.query(Prompt).distinct(Prompt.lineage_id).count()
-            total_versions = session.query(Prompt).count()
-            total_examples = session.query(Example).count()
+    def get_prompt_trends(self, days: int = 30) -> List[Dict[str, Any]]:
+        """Get prompt creation trends"""
+        try:
+            with self.session_scope() as session:
+                # Get prompts created in the last N days
+                cutoff_date = datetime.now().timestamp() - (days * 24 * 60 * 60)
+                
+                trends = session.query(
+                    func.date(func.datetime(Prompt.created_at, 'unixepoch')).label('date'),
+                    func.count(Prompt.id).label('count')
+                ).filter(
+                    Prompt.created_at >= cutoff_date
+                ).group_by(
+                    func.date(func.datetime(Prompt.created_at, 'unixepoch'))
+                ).order_by(
+                    func.date(func.datetime(Prompt.created_at, 'unixepoch'))
+                ).all()
+                
+                return [
+                    {'date': str(trend.date), 'count': trend.count}
+                    for trend in trends
+                ]
+                
+        except Exception as e:
+            logger.error(f"Failed to get prompt trends: {e}")
+            return []
+    
+    def get_example_growth(self, days: int = 30) -> List[Dict[str, Any]]:
+        """Get training example growth trends"""
+        try:
+            with self.session_scope() as session:
+                # Get examples created in the last N days
+                cutoff_date = datetime.now() - timedelta(days=days)
+                
+                growth = session.query(
+                    func.date(Example.created_at).label('date'),
+                    func.count(Example.id).label('count')
+                ).filter(
+                    Example.created_at >= cutoff_date
+                ).group_by(
+                    func.date(Example.created_at)
+                ).order_by(
+                    func.date(Example.created_at)
+                ).all()
+                
+                return [
+                    {'date': str(growth_item.date), 'count': growth_item.count}
+                    for growth_item in growth
+                ]
+                
+        except Exception as e:
+            logger.error(f"Failed to get example growth: {e}")
+            return []
+    
+    # --- Utility Methods ---
+    
+    def validate_training_data(self, training_data: Union[str, List[Dict[str, str]]]) -> bool:
+        """Validate training data format"""
+        try:
+            validate_training_data_format(training_data)
+            return True
+        except Exception as e:
+            logger.error(f"Training data validation failed: {e}")
+            return False
+    
+    def backup_database(self, backup_path: str) -> bool:
+        """Create database backup"""
+        try:
+            import shutil
+            import os
             
-            # Calculate improvement rate
-            improved_prompts = session.query(Prompt).filter(Prompt.version > 1).distinct(Prompt.lineage_id).count()
-            improvement_rate = (improved_prompts / total_prompts * 100) if total_prompts > 0 else 0
+            # Get database file path
+            if self.engine.url.drivername == 'sqlite':
+                db_path = self.engine.url.database
+                if db_path == ':memory:':
+                    raise ValueError("Cannot backup in-memory database")
+                
+                # Create backup
+                shutil.copy2(db_path, backup_path)
+                logger.info(f"Database backed up to: {backup_path}")
+                return True
+            else:
+                logger.warning("Backup not implemented for non-SQLite databases")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Failed to backup database: {e}")
+            return False
+    
+    def cleanup_old_data(self, days: int = 90) -> int:
+        """Clean up old data (prompts and examples older than specified days)"""
+        try:
+            cutoff_timestamp = datetime.now().timestamp() - (days * 24 * 60 * 60)
             
-            # Calculate average examples per prompt
-            avg_examples = total_examples / total_prompts if total_prompts > 0 else 0
-            
-            # Get recent activity (last 7 days)
-            week_ago = time.time() - (7 * 24 * 60 * 60)
-            recent_prompts = session.query(Prompt).filter(Prompt.created_at >= week_ago).distinct(Prompt.lineage_id).count()
-            recent_improvements = session.query(Prompt).filter(
-                Prompt.created_at >= week_ago,
-                Prompt.version > 1
-            ).distinct(Prompt.lineage_id).count()
-            
-            return {
-                'total_prompts': total_prompts,
-                'total_versions': total_versions,
-                'total_examples': total_examples,
-                'improvement_rate': round(improvement_rate, 1),
-                'avg_examples_per_prompt': round(avg_examples, 1),
-                'recent_prompts_7d': recent_prompts,
-                'recent_improvements_7d': recent_improvements,
-                'avg_versions_per_prompt': round(total_versions / total_prompts, 1) if total_prompts > 0 else 0
-            } 
+            with self.session_scope() as session:
+                # Delete old prompts
+                old_prompts = session.query(Prompt).filter(
+                    Prompt.created_at < cutoff_timestamp
+                ).all()
+                
+                deleted_count = len(old_prompts)
+                
+                for prompt in old_prompts:
+                    session.delete(prompt)
+                
+                logger.info(f"Cleaned up {deleted_count} old prompts")
+                return deleted_count
+                
+        except Exception as e:
+            logger.error(f"Failed to cleanup old data: {e}")
+            return 0 

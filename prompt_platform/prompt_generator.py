@@ -9,7 +9,7 @@ from typing import Any, Callable
 import time
 
 from .config import DspyConfig, get_dspy_lm
-from .schemas import Prompt as PromptSchema
+from .schemas import PromptSchema
 from .database import PromptDB # Import the class, not the instance
 
 logger = logging.getLogger(__name__)
@@ -45,14 +45,20 @@ class PromptGenerator:
         if not lineage_id:
             lineage_id = str(uuid.uuid4())
             
+        # Generate unique ID and timestamp
+        prompt_id = str(uuid.uuid4())
+        created_at = time.time()
+            
         validated_prompt = PromptSchema(
+            id=prompt_id,
             task=task,
             prompt=prompt,
             parent_id=parent_id,
             lineage_id=lineage_id,
             version=version,
             training_data=training_data,
-            improvement_request=improvement_request
+            improvement_request=improvement_request,
+            created_at=created_at
         )
         return validated_prompt.model_dump()
 
