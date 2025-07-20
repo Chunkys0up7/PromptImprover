@@ -75,7 +75,14 @@ def improve_prompt_dialog(prompt_id):
     has_training_data = False
     training_count = 0
     
-    if prompt_data and prompt_data.get('training_data'):
+    # Get training examples from the Example table
+    examples = st.session_state.db.get_examples(prompt_id)
+    if examples:
+        training_count = len(examples)
+        has_training_data = training_count > 0
+    
+    # Fallback to training_data JSON if no examples found (for backward compatibility)
+    if not has_training_data and prompt_data and prompt_data.get('training_data'):
         try:
             # Handle both string (JSON) and list formats
             if isinstance(prompt_data['training_data'], str):
@@ -261,6 +268,7 @@ def test_prompt_dialog(prompt_id):
     is_newly_generated = (
         'newly_generated_prompt' in st.session_state and 
         st.session_state.newly_generated_prompt is not None and
+        st.session_state.newly_generated_prompt.get('prompt_data') is not None and
         st.session_state.newly_generated_prompt.get('prompt_data', {}).get('id') == prompt_id
     )
     
@@ -269,6 +277,7 @@ def test_prompt_dialog(prompt_id):
         'newly_generated_prompt' in st.session_state and 
         st.session_state.newly_generated_prompt is not None and
         st.session_state.newly_generated_prompt.get('original_prompt_id') == prompt_id and
+        st.session_state.newly_generated_prompt.get('prompt_data') is not None and
         st.session_state.newly_generated_prompt.get('prompt_data', {}).get('id') != prompt_id
     )
     

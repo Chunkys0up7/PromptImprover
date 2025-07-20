@@ -6,6 +6,7 @@ import dspy
 import uuid
 from functools import lru_cache
 from typing import Any, Callable
+import time
 
 from .config import DspyConfig, get_dspy_lm
 from .schemas import Prompt as PromptSchema
@@ -142,234 +143,93 @@ Provide your response in this format:
             # If no structured response, treat the whole thing as the prompt
             return response.strip(), "Generated using systematic prompt engineering principles with task analysis and role definition."
 
-    async def improve_prompt_with_dspy(self, prompt_id: int, task_description: dict, api_client: 'APIClient', db: 'PromptDB') -> dict:
-        """
-        Improves a prompt using DSPy's systematic optimization approach.
-        
-        This follows the DSPy methodology:
-        1. Define the task and evaluate current performance
-        2. Collect training data and define metrics
-        3. Leverage DSPy optimizers
-        4. Iterate and refine
-        """
-        original_prompt_data = db.get_prompt(prompt_id)
-        if not original_prompt_data:
-            raise ValueError(f"Original prompt with ID {prompt_id} not found.")
-
-        logger.info(f"Starting DSPy improvement process for prompt {prompt_id}")
-        
-        # Step 1: Define the task and evaluate current performance
-        task_signature = self._define_task_signature(original_prompt_data, task_description)
-        
-        # Step 2: Collect training data and define metrics
-        training_data = self._prepare_training_data(original_prompt_data, task_description)
-        evaluation_metric = self._define_evaluation_metric(task_description)
-        
-        # Step 3: Choose appropriate DSPy optimizer based on data size
-        optimizer = self._select_optimizer(len(training_data))
-        
-        # Step 4: Run DSPy optimization
-        improved_prompt = await self._run_dspy_optimization(
-            task_signature, training_data, evaluation_metric, optimizer, original_prompt_data['prompt']
-        )
-        
-        # Step 5: Create improved prompt data
-        return self._create_prompt_data(
-            task=original_prompt_data['task'],
-            prompt=improved_prompt,
-            parent_id=original_prompt_data['id'],
-            lineage_id=original_prompt_data['lineage_id'],
-            version=original_prompt_data.get('version', 0) + 1,
-            training_data=training_data,
-            improvement_request=f"DSPy optimization: {task_description.get('critique', 'Systematic improvement')}"
-        )
-
-    def _define_task_signature(self, prompt_data: dict, task_description: dict) -> dspy.Signature:
-        """Define the DSPy signature for the task."""
-        # Create a dynamic signature based on the task
-        class TaskSignature(dspy.Signature):
-            """Generate a response based on the user's input using the optimized prompt."""
-            input = dspy.InputField(desc="User input for the task")
-            output = dspy.OutputField(desc="Expected output based on the prompt")
-        
-        return TaskSignature
-
-    def _prepare_training_data(self, prompt_data: dict, task_description: dict) -> list:
-        """Prepare training data for DSPy optimization."""
-        training_data = []
-        
-        # Add existing training data if available
-        existing_data = prompt_data.get('training_data', [])
-        if isinstance(existing_data, str):
-            try:
-                existing_data = json.loads(existing_data)
-            except:
-                existing_data = []
-        
-        training_data.extend(existing_data)
-        
-        # Add the current feedback as training data
-        if isinstance(task_description, dict):
-            feedback_example = {
-                "input": task_description.get('user_input', ''),
-                "output": task_description.get('desired_output', '')
-            }
-            training_data.append(feedback_example)
-        
-        # Ensure we have at least some training data
-        if not training_data:
-            # Create a basic example from the task
-            training_data.append({
-                "input": "example input",
-                "output": "expected output based on the prompt"
-            })
-        
-        return training_data
-
-    def _define_evaluation_metric(self, task_description: dict) -> callable:
-        """Define the evaluation metric for DSPy optimization."""
-        if isinstance(task_description, dict) and task_description.get('critique'):
-            # Use a custom metric that considers the specific feedback
-            def custom_metric(gold, pred, trace=None):
-                # Basic exact match with some flexibility
-                if isinstance(gold, str) and isinstance(pred, str):
-                    return gold.lower().strip() == pred.lower().strip()
-                return False
-            return custom_metric
-        else:
-            # Default to exact match
-            return dspy.evaluate.answer_exact_match
-
-    def _select_optimizer(self, data_size: int) -> Any:
-        """Select the appropriate DSPy optimizer based on data size."""
-        if data_size < 10:
-            # For limited examples, use BootstrapFewShot
-            logger.info(f"Using BootstrapFewShot for {data_size} examples")
-            return dspy.BootstrapFewShot(
-                metric=dspy.evaluate.answer_exact_match,
-                max_bootstrapped_demos=min(data_size, 5),
-                max_labeled_demos=min(data_size, 5)
-            )
-        elif data_size < 50:
-            # For moderate data, use BootstrapFewShotWithRandomSearch
-            logger.info(f"Using BootstrapFewShotWithRandomSearch for {data_size} examples")
-            return dspy.BootstrapFewShotWithRandomSearch(
-                metric=dspy.evaluate.answer_exact_match,
-                max_bootstrapped_demos=min(data_size // 2, 10),
-                max_labeled_demos=min(data_size // 2, 10),
-                num_candidate_programs=3,
-                num_threads=1
-            )
-        else:
-            # For larger datasets, use MIPROv2
-            logger.info(f"Using MIPROv2 for {data_size} examples")
-            return dspy.MIPROv2(
-                metric=dspy.evaluate.answer_exact_match,
-                max_bootstrapped_demos=min(data_size // 4, 20),
-                max_labeled_demos=min(data_size // 4, 20),
-                num_candidate_programs=5,
-                num_threads=2
-            )
-
-    async def _run_dspy_optimization(self, signature: dspy.Signature, training_data: list, 
-                                   evaluation_metric: Callable, optimizer: Any, original_prompt: str) -> str:
-        """Run DSPy optimization and extract the optimized prompt."""
-        try:
-            class OptimizedModule(dspy.Module):
-                def __init__(self):
-                    super().__init__()
-                    self.generate_answer = dspy.ChainOfThought(signature)
-                
-                def forward(self, input):
-                    return self.generate_answer(input=input)
-            
-            # Convert training data to DSPy examples
-            trainset = []
-            for item in training_data:
-                if isinstance(item, dict) and 'input' in item and 'output' in item:
-                    example = dspy.Example(input=item['input'], output=item['output'])
-                    # Set the inputs properly for DSPy
-                    example = example.with_inputs(input=item['input'])
-                    trainset.append(example)
-            
-            if not trainset:
-                raise ValueError("No valid training examples found")
-            
-            # Run optimization
-            logger.info(f"Running DSPy optimization with {len(trainset)} examples")
-            optimized_module = await asyncio.to_thread(
-                optimizer.compile, 
-                OptimizedModule(), 
-                trainset=trainset
-            )
-            
-            # Extract the optimized prompt - handle different DSPy module types
-            try:
-                # Try multiple methods to extract the optimized prompt
-                optimized_prompt = None
-                
-                # Method 1: Try to get from signature instructions
-                if hasattr(optimized_module.generate_answer, 'signature'):
-                    signature = optimized_module.generate_answer.signature
-                    if hasattr(signature, 'instructions'):
-                        optimized_prompt = signature.instructions
-                
-                # Method 2: Try to get from the module's docstring
-                if not optimized_prompt and hasattr(optimized_module.generate_answer, '__doc__'):
-                    doc = optimized_module.generate_answer.__doc__
-                    if doc and doc.strip() and "Generate a response" not in doc:
-                        optimized_prompt = doc
-                
-                # Method 3: Try to get from the signature's docstring
-                if not optimized_prompt and hasattr(optimized_module.generate_answer, 'signature'):
-                    signature = optimized_module.generate_answer.signature
-                    if hasattr(signature, '__doc__'):
-                        doc = signature.__doc__
-                        if doc and doc.strip() and "Generate a response" not in doc:
-                            optimized_prompt = doc
-                
-                # Method 4: Try to get from the module's raw_instructions (if available)
-                if not optimized_prompt and hasattr(optimized_module.generate_answer, 'raw_instructions'):
-                    optimized_prompt = optimized_module.generate_answer.raw_instructions
-                
-                # If we still don't have a prompt, use the original
-                if not optimized_prompt or optimized_prompt.strip() == "":
-                    logger.warning("Could not extract optimized prompt from DSPy module, using original")
-                    optimized_prompt = original_prompt
-                
-                # Clean up the prompt if it's just the default docstring
-                if optimized_prompt and "Generate a response based on the user's input using the optimized prompt." in optimized_prompt:
-                    logger.warning("Extracted prompt is default docstring, using original")
-                    optimized_prompt = original_prompt
-                    
-            except Exception as e:
-                logger.warning(f"Could not extract optimized prompt: {e}")
-                # Use the original prompt as fallback
-                optimized_prompt = original_prompt
-            
-            # Ensure the prompt has the required placeholder
-            if '{input}' not in optimized_prompt:
-                optimized_prompt += "\n\nInput: {input}"
-            
-            logger.info("DSPy optimization completed successfully")
-            return optimized_prompt
-            
-        except Exception as e:
-            logger.error(f"DSPy optimization failed: {e}", exc_info=True)
-            # Fallback to basic improvement
-            raise ValueError(f"DSPy optimization failed: {e}")
-
     async def improve_prompt(self, prompt_id: int, task_description: dict, api_client: 'APIClient', db: 'PromptDB') -> dict:
-        """
-        Improves an existing prompt using DSPy when possible, falls back to basic improvement.
-        """
+        """Improve a prompt using DSPy optimization or basic improvement."""
         try:
-            # Try DSPy improvement first
-            return await self.improve_prompt_with_dspy(prompt_id, task_description, api_client, db)
-        except Exception as e:
-            logger.warning(f"DSPy improvement failed, falling back to basic improvement: {e}")
-            # Fallback to the original improvement method
+            # Get the original prompt
+            original_prompt_data = db.get_prompt(prompt_id)
+            if not original_prompt_data:
+                raise ValueError(f"Prompt with ID {prompt_id} not found")
+            
+            original_prompt = original_prompt_data['prompt']
+            task_desc = task_description.get('task', 'Improve the prompt')
+            
+            # Get training examples from the Example table instead of training_data JSON
+            examples = db.get_examples(prompt_id)
+            training_data = []
+            
+            if examples:
+                for example in examples:
+                    training_data.append({
+                        'input': example.get('input_text', ''),
+                        'output': example.get('output_text', '')
+                    })
+            
+            # Try DSPy optimization if we have training data
+            if training_data and len(training_data) > 0:
+                try:
+                    logger.info(f"Starting DSPy improvement process for prompt {prompt_id}")
+                    
+                    # Create DSPy signature
+                    signature = dspy.Signature(
+                        f"Given the input, generate a response based on the following prompt: {original_prompt}",
+                        "input -> output"
+                    )
+                    
+                    # Choose optimizer based on data size
+                    if len(training_data) < 10:
+                        optimizer = dspy.BootstrapFewShot()
+                        logger.info(f"Using BootstrapFewShot for {len(training_data)} examples")
+                    elif len(training_data) < 50:
+                        optimizer = dspy.BootstrapFewShotWithRandomSearch()
+                        logger.info(f"Using BootstrapFewShotWithRandomSearch for {len(training_data)} examples")
+                    else:
+                        optimizer = dspy.MIPROv2()
+                        logger.info(f"Using MIPROv2 for {len(training_data)} examples")
+                    
+                    # Define evaluation metric
+                    def answer_exact_match(example, pred, trace=None):
+                        return example.output.lower().strip() == pred.output.lower().strip()
+                    
+                    # Run DSPy optimization
+                    logger.info(f"Running DSPy optimization with {len(training_data)} examples")
+                    optimized_prompt = await self._run_dspy_optimization(
+                        signature, training_data, answer_exact_match, optimizer, original_prompt
+                    )
+                    
+                    logger.info("DSPy optimization completed successfully")
+                    
+                    # Create improved prompt data
+                    improved_prompt_data = {
+                        'id': str(uuid.uuid4()),
+                        'lineage_id': original_prompt_data['lineage_id'],
+                        'parent_id': str(prompt_id),
+                        'task': original_prompt_data['task'],
+                        'prompt': optimized_prompt,
+                        'version': original_prompt_data['version'] + 1,
+                        'training_data': '[]',  # Keep empty since we use Example table
+                        'improvement_request': task_desc,
+                        'generation_process': f"DSPy optimization using {len(training_data)} training examples. {task_desc}",
+                        'created_at': time.time(),
+                        'model': original_prompt_data.get('model', 'dspy-optimized')
+                    }
+                    
+                    # Save the improved prompt
+                    db.save_prompt(improved_prompt_data)
+                    
+                    return improved_prompt_data
+                    
+                except Exception as e:
+                    logger.warning(f"DSPy improvement failed, falling back to basic improvement: {e}")
+                    # Fall through to basic improvement
+            
+            # Basic improvement fallback
+            logger.info(f"Improving prompt {prompt_id} with task: '{task_desc}'")
             return await self._improve_prompt_basic(prompt_id, task_description, api_client, db)
+            
+        except Exception as e:
+            logger.error(f"Failed to improve prompt {prompt_id}: {e}", exc_info=True)
+            raise
 
     async def _improve_prompt_basic(self, prompt_id: int, task_description: dict, api_client: 'APIClient', db: 'PromptDB') -> dict:
         """Original basic improvement method as fallback."""

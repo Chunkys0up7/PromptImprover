@@ -1,0 +1,113 @@
+{
+  "test_date": "2025-07-20T18:46:18.062576",
+  "summary": {
+    "total_tests": 17,
+    "passed_tests": 17,
+    "failed_tests": 0,
+    "success_rate": 100.0
+  },
+  "results": [
+    {
+      "test": "Database Save Prompt",
+      "success": true,
+      "details": "Successfully saved test prompt",
+      "timestamp": "2025-07-20T18:46:17.956556"
+    },
+    {
+      "test": "Database Get Prompt",
+      "success": true,
+      "details": "Successfully retrieved test prompt",
+      "timestamp": "2025-07-20T18:46:17.958555"
+    },
+    {
+      "test": "Database Add Examples",
+      "success": true,
+      "details": "Successfully added 2 training examples",
+      "timestamp": "2025-07-20T18:46:18.047104"
+    },
+    {
+      "test": "Database Get Examples",
+      "success": true,
+      "details": "Successfully retrieved 2 examples",
+      "timestamp": "2025-07-20T18:46:18.049097"
+    },
+    {
+      "test": "Database Malformed Training Data",
+      "success": true,
+      "details": "Successfully handled malformed training data",
+      "timestamp": "2025-07-20T18:46:18.053985"
+    },
+    {
+      "test": "DSPy Configuration",
+      "success": true,
+      "details": "DSPy is properly configured",
+      "timestamp": "2025-07-20T18:46:18.053985"
+    },
+    {
+      "test": "DSPy Training Data Preparation",
+      "success": true,
+      "details": "Prepared 2 training examples",
+      "timestamp": "2025-07-20T18:46:18.054969"
+    },
+    {
+      "test": "JSON Handling - Empty JSON array",
+      "success": true,
+      "details": "Parsed successfully: <class 'list'>",
+      "timestamp": "2025-07-20T18:46:18.054969"
+    },
+    {
+      "test": "JSON Handling - Valid JSON array",
+      "success": true,
+      "details": "Parsed successfully: <class 'list'>",
+      "timestamp": "2025-07-20T18:46:18.054969"
+    },
+    {
+      "test": "JSON Handling - Python list",
+      "success": true,
+      "details": "Handled list: 1 items",
+      "timestamp": "2025-07-20T18:46:18.055968"
+    },
+    {
+      "test": "JSON Handling - None value",
+      "success": true,
+      "details": "Handled None value",
+      "timestamp": "2025-07-20T18:46:18.055968"
+    },
+    {
+      "test": "JSON Handling - Invalid JSON string",
+      "success": true,
+      "details": "Correctly failed on invalid JSON",
+      "timestamp": "2025-07-20T18:46:18.055968"
+    },
+    {
+      "test": "API Client Configuration",
+      "success": true,
+      "details": "API client is properly configured",
+      "timestamp": "2025-07-20T18:46:18.055968"
+    },
+    {
+      "test": "API Client Initialization",
+      "success": true,
+      "details": "API client initialized successfully",
+      "timestamp": "2025-07-20T18:46:18.056968"
+    },
+    {
+      "test": "Prompt Generator Initialization",
+      "success": true,
+      "details": "Prompt generator initialized successfully",
+      "timestamp": "2025-07-20T18:46:18.056968"
+    },
+    {
+      "test": "Prompt Data Creation",
+      "success": true,
+      "details": "Successfully created prompt data",
+      "timestamp": "2025-07-20T18:46:18.056968"
+    },
+    {
+      "test": "Test Data Cleanup",
+      "success": true,
+      "details": "Cleanup completed",
+      "timestamp": "2025-07-20T18:46:18.057967"
+    }
+  ]
+}

@@ -1,0 +1,89 @@
+{
+  "test_date": "2025-07-20T18:45:38.716460",
+  "summary": {
+    "total_tests": 13,
+    "passed_tests": 11,
+    "failed_tests": 2,
+    "success_rate": 84.61538461538461
+  },
+  "results": [
+    {
+      "test": "Database Operations",
+      "success": false,
+      "details": "Exception: (sqlite3.IntegrityError) UNIQUE constraint failed: prompts.id\n[SQL: INSERT INTO prompts (id, lineage_id, parent_id, task, prompt, version, training_data, improvement_request, generation_process, created_at, model) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)]\n[parameters: ('test-prompt-001', 'test-lineage-001', None, 'Test prompt for validation', 'Generate a response for: {input}', 1, '[]', None, None, 1753051538.702203, None)]\n(Background on this error at: https://sqlalche.me/e/20/gkpj)",
+      "timestamp": "2025-07-20T18:45:38.707203"
+    },
+    {
+      "test": "DSPy Configuration",
+      "success": true,
+      "details": "DSPy is properly configured",
+      "timestamp": "2025-07-20T18:45:38.708202"
+    },
+    {
+      "test": "DSPy Training Data Preparation",
+      "success": true,
+      "details": "Prepared 2 training examples",
+      "timestamp": "2025-07-20T18:45:38.708202"
+    },
+    {
+      "test": "JSON Handling - Empty JSON array",
+      "success": true,
+      "details": "Parsed successfully: <class 'list'>",
+      "timestamp": "2025-07-20T18:45:38.709204"
+    },
+    {
+      "test": "JSON Handling - Valid JSON array",
+      "success": true,
+      "details": "Parsed successfully: <class 'list'>",
+      "timestamp": "2025-07-20T18:45:38.709204"
+    },
+    {
+      "test": "JSON Handling - Python list",
+      "success": true,
+      "details": "Handled list: 1 items",
+      "timestamp": "2025-07-20T18:45:38.709204"
+    },
+    {
+      "test": "JSON Handling - None value",
+      "success": true,
+      "details": "Handled None value",
+      "timestamp": "2025-07-20T18:45:38.710202"
+    },
+    {
+      "test": "JSON Handling - Invalid JSON string",
+      "success": true,
+      "details": "Correctly failed on invalid JSON",
+      "timestamp": "2025-07-20T18:45:38.710202"
+    },
+    {
+      "test": "API Client Configuration",
+      "success": true,
+      "details": "API client is properly configured",
+      "timestamp": "2025-07-20T18:45:38.710202"
+    },
+    {
+      "test": "API Client Initialization",
+      "success": true,
+      "details": "API client initialized successfully",
+      "timestamp": "2025-07-20T18:45:38.710202"
+    },
+    {
+      "test": "Prompt Generator Initialization",
+      "success": false,
+      "details": "Prompt generator failed to initialize",
+      "timestamp": "2025-07-20T18:45:38.711461"
+    },
+    {
+      "test": "Prompt Data Creation",
+      "success": true,
+      "details": "Successfully created prompt data",
+      "timestamp": "2025-07-20T18:45:38.711461"
+    },
+    {
+      "test": "Test Data Cleanup",
+      "success": true,
+      "details": "Cleanup completed",
+      "timestamp": "2025-07-20T18:45:38.712460"
+    }
+  ]
+}
