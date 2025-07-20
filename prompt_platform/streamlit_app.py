@@ -136,14 +136,16 @@ def main():
             # Test the prompt inline
             st.markdown("**🧪 Test Your Prompt:**")
             
-            # Generate contextual test suggestions
+            # Generate contextual test suggestions (if any)
             from prompt_platform.ui_components import _generate_test_suggestions
             test_suggestions = _generate_test_suggestions(task)
             
-            st.markdown("**💡 Suggested Test Scenarios:**")
-            for i, suggestion in enumerate(test_suggestions, 1):
-                st.markdown(f"{i}. **{suggestion['scenario']}** - {suggestion['description']}")
-                st.markdown(f"   *Try:* `{suggestion['example']}`")
+            # Only show suggestions if we have them
+            if test_suggestions:
+                st.markdown("**💡 Suggested Test Scenarios:**")
+                for i, suggestion in enumerate(test_suggestions, 1):
+                    st.markdown(f"{i}. **{suggestion['scenario']}** - {suggestion['description']}")
+                    st.markdown(f"   *Try:* `{suggestion['example']}`")
             
             # Inline chat interface for testing
             st.markdown("**💬 Test Chat:**")
