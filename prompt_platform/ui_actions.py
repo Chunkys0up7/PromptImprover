@@ -239,7 +239,7 @@ def display_improvement_results():
         st.markdown("---")
         
         # Add a button to clear the improvement display
-        if st.button("✅ Acknowledge & Continue", key="acknowledge_improvement", use_container_width=True):
+        if st.button("✅ Acknowledge & Continue", key=f"acknowledge_improvement_{id(improvement)}", use_container_width=True):
             del st.session_state.last_improvement
             st.rerun()
 
