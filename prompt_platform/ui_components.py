@@ -32,6 +32,93 @@ def escape_markdown(text: str) -> str:
     # Incomplete list, but covers common cases for table corruption
     return re.sub(r"([\\`*_{}[\]()#+.!|])", r"\\\1", text)
 
+def _generate_contextual_samples(task: str) -> list:
+    """Generate contextual sample inputs based on the prompt task."""
+    task_lower = task.lower()
+    
+    # Define sample inputs for different types of tasks
+    samples = {
+        'joke': [
+            "Tell me a funny joke about programming",
+            "Make me laugh with a dad joke",
+            "Share a witty one-liner",
+            "Tell me a joke about technology"
+        ],
+        'story': [
+            "Write a short story about a robot",
+            "Create a tale about time travel",
+            "Tell me a story about friendship",
+            "Write a mystery story"
+        ],
+        'explain': [
+            "Explain how machine learning works",
+            "What is quantum computing?",
+            "Explain the concept of blockchain",
+            "How does photosynthesis work?"
+        ],
+        'analyze': [
+            "Analyze the benefits of renewable energy",
+            "What are the pros and cons of remote work?",
+            "Analyze the impact of social media",
+            "Evaluate the effectiveness of online learning"
+        ],
+        'write': [
+            "Write a professional email",
+            "Create a persuasive argument",
+            "Write a product description",
+            "Draft a meeting agenda"
+        ],
+        'help': [
+            "Help me plan a vacation",
+            "Assist me with a difficult decision",
+            "Help me organize my schedule",
+            "Guide me through a problem"
+        ],
+        'translate': [
+            "Translate this to Spanish",
+            "Convert this to formal language",
+            "Rewrite this in simple terms",
+            "Translate this technical jargon"
+        ],
+        'summarize': [
+            "Summarize this article",
+            "Give me the key points",
+            "Create a brief overview",
+            "Condense this information"
+        ]
+    }
+    
+    # Find the best matching category
+    for category, category_samples in samples.items():
+        if category in task_lower:
+            return category_samples
+    
+    # If no specific match, return general samples based on common keywords
+    if any(word in task_lower for word in ['joke', 'funny', 'humor', 'laugh']):
+        return samples['joke']
+    elif any(word in task_lower for word in ['story', 'tale', 'narrative', 'fiction']):
+        return samples['story']
+    elif any(word in task_lower for word in ['explain', 'describe', 'define', 'what is']):
+        return samples['explain']
+    elif any(word in task_lower for word in ['analyze', 'evaluate', 'assess', 'compare']):
+        return samples['analyze']
+    elif any(word in task_lower for word in ['write', 'create', 'draft', 'compose']):
+        return samples['write']
+    elif any(word in task_lower for word in ['help', 'assist', 'guide', 'support']):
+        return samples['help']
+    elif any(word in task_lower for word in ['translate', 'convert', 'rewrite', 'rephrase']):
+        return samples['translate']
+    elif any(word in task_lower for word in ['summarize', 'brief', 'overview', 'key points']):
+        return samples['summarize']
+    
+    # Default fallback samples
+    return [
+        "Test this prompt with a simple request",
+        "Try a specific example",
+        "Ask for detailed information",
+        "Request a creative response"
+    ]
+
 @st.dialog("📜 View Lineage")
 def view_lineage_dialog(lineage_id):
     """Renders the 'View Lineage' dialog."""
@@ -140,10 +227,19 @@ def test_prompt_dialog(prompt_id):
         st.title(f"🎉 New Prompt Generated: {prompt_data.get('task', 'Untitled')}")
         st.success("✨ Your prompt has been created! Let's test it out and get your feedback.")
         st.info("💡 **Tip:** Try the prompt with different inputs to see how it performs. Use the feedback buttons to save good examples or correct bad ones.")
+        
+        # Add a prominent improve button for newly generated prompts
+        col1, col2 = st.columns(2)
+        with col1:
+            st.button("Close", on_click=close_test_dialog, use_container_width=True)
+        with col2:
+            if st.button("✨ Improve This Prompt", key=f"improve_from_test_{prompt_id}", use_container_width=True):
+                # Close test dialog and open improve dialog
+                close_test_dialog()
+                improve_prompt_dialog(prompt_id)
     else:
         st.title(f"Testing: {prompt_data.get('task', 'Untitled')} (v{prompt_data.get('version', 1)})")
-    
-    st.button("Close", on_click=close_test_dialog, use_container_width=True)
+        st.button("Close", on_click=close_test_dialog, use_container_width=True)
 
     # Display the prompt diff if it exists in the session state
     if 'prompt_diff' in st.session_state and st.session_state.prompt_diff:
@@ -160,16 +256,13 @@ def test_prompt_dialog(prompt_id):
             st.markdown("**🧠 Generation Process:**")
             st.markdown(prompt_data['generation_process'])
     
-    # For newly generated prompts, offer a quick test with a sample input
+    # For newly generated prompts, offer a quick test with contextual sample inputs
     if is_newly_generated:
         st.subheader("🚀 Quick Test")
-        sample_inputs = [
-            "Hello, how are you?",
-            "What's the weather like?",
-            "Tell me a joke",
-            "Explain quantum physics",
-            "Write a short story"
-        ]
+        
+        # Generate contextual sample inputs based on the prompt task
+        task = prompt_data.get('task', '').lower()
+        sample_inputs = _generate_contextual_samples(task)
         
         col1, col2 = st.columns([3, 1])
         with col1:
@@ -313,6 +406,10 @@ def main_manager_view(prompts):
                 if row.get('generation_process'):
                     with st.expander("🧠 View Generation Process", expanded=True):
                         st.markdown(row['generation_process'])
+                
+                # Add a special improve button for newly generated prompts
+                if st.button("✨ Improve This Prompt", key=f"improve_new_{row['id']}", use_container_width=True):
+                    improve_prompt_dialog(row['id'])
             elif is_latest_improvement:
                 st.markdown(f"#### 🆕 {row.get('task', 'Untitled')} (v{row.get('version', 1)}) - **Just Improved!**")
                 st.success("✨ This prompt was just improved! Check the improvement results above.")
@@ -339,6 +436,11 @@ def main_manager_view(prompts):
             if cols[1].button("✨ Improve", key=f"improve_{row['id']}", use_container_width=True):
                 # Only open improve dialog if no other dialog is active
                 if not st.session_state.get('testing_prompt_id'):
+                    # For newly generated prompts, ensure we're improving the correct one
+                    if is_newly_generated:
+                        # Clear the newly generated flag to prevent confusion
+                        if 'newly_generated_prompt' in st.session_state:
+                            st.session_state.newly_generated_prompt['should_open_test'] = False
                     improve_prompt_dialog(row['id'])
                 else:
                     st.warning("Please close the test dialog first.")
