@@ -12,6 +12,8 @@ import logging
 from datetime import datetime
 from typing import Optional, Dict, Any, List
 import streamlit as st
+import subprocess
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +26,74 @@ class GitHubIntegration:
         self.default_owner = os.getenv('GITHUB_OWNER')
         self.default_repo = os.getenv('GITHUB_REPO')
         self.enabled = os.getenv('GITHUB_ENABLED', 'false').lower() == 'true'
+        self.project_root = Path(__file__).parent.parent
         
+    def detect_current_repo(self) -> Optional[Dict[str, str]]:
+        """Detect the current project's GitHub repository."""
+        try:
+            # Check if we're in a git repository
+            result = subprocess.run(
+                ['git', 'remote', 'get-url', 'origin'],
+                capture_output=True,
+                text=True,
+                cwd=self.project_root
+            )
+            
+            if result.returncode == 0:
+                remote_url = result.stdout.strip()
+                
+                # Parse GitHub URL
+                if 'github.com' in remote_url:
+                    # Handle different URL formats
+                    if remote_url.startswith('https://github.com/'):
+                        parts = remote_url.replace('https://github.com/', '').split('/')
+                    elif remote_url.startswith('git@github.com:'):
+                        parts = remote_url.replace('git@github.com:', '').split('/')
+                    else:
+                        return None
+                    
+                    if len(parts) >= 2:
+                        owner = parts[0]
+                        repo = parts[1].replace('.git', '')
+                        return {
+                            'owner': owner,
+                            'repo': repo,
+                            'url': remote_url
+                        }
+            
+            return None
+            
+        except Exception as e:
+            logger.warning(f"Could not detect current repository: {e}")
+            return None
+    
+    def create_prompts_folder(self, owner: str, repo: str) -> bool:
+        """Create a prompts folder in the repository if it doesn't exist."""
+        try:
+            from github import Github
+            
+            g = Github(self.github_token)
+            repository = g.get_repo(f"{owner}/{repo}")
+            
+            # Check if prompts folder exists
+            try:
+                repository.get_contents("prompts")
+                logger.info("Prompts folder already exists")
+                return True
+            except:
+                # Create prompts folder
+                repository.create_file(
+                    path="prompts/.gitkeep",
+                    message="Create prompts folder for prompt management",
+                    content="# This file ensures the prompts folder is tracked by git\n# Prompts will be stored here as markdown files"
+                )
+                logger.info("Created prompts folder")
+                return True
+                
+        except Exception as e:
+            logger.error(f"Failed to create prompts folder: {e}")
+            return False
+    
     def is_enabled(self) -> bool:
         """Check if GitHub integration is enabled."""
         return self.enabled
@@ -204,6 +273,29 @@ class GitHubIntegration:
                 'configured': False
             }
         
+        # Detect current repository
+        current_repo = self.detect_current_repo()
+        
+        if current_repo:
+            st.success(f"🎯 **Current Repository Detected:** {current_repo['owner']}/{current_repo['repo']}")
+            
+            # Auto-configure option
+            if st.button("🚀 Use Current Repository", key="use_current_repo"):
+                self.default_owner = current_repo['owner']
+                self.default_repo = current_repo['repo']
+                os.environ['GITHUB_OWNER'] = current_repo['owner']
+                os.environ['GITHUB_REPO'] = current_repo['repo']
+                
+                # Create prompts folder
+                if self.github_token:
+                    if self.create_prompts_folder(current_repo['owner'], current_repo['repo']):
+                        st.success("✅ Prompts folder created/verified in repository!")
+                    else:
+                        st.warning("⚠️ Could not create prompts folder. Check your token permissions.")
+                
+                st.success("✅ Current repository configured!")
+                st.rerun()
+        
         # Show configuration status
         if not self.is_configured():
             st.warning("⚠️ GitHub integration enabled but not fully configured. Configure below.")
@@ -239,6 +331,16 @@ class GitHubIntegration:
                 value="main",
                 help="Branch to commit to (default: main)"
             )
+            
+            # Prompts folder management
+            if st.button("📁 Create/Verify Prompts Folder", key="create_prompts_folder"):
+                if github_token and owner and repo_name:
+                    if self.create_prompts_folder(owner, repo_name):
+                        st.success("✅ Prompts folder created/verified!")
+                    else:
+                        st.error("❌ Failed to create prompts folder. Check permissions.")
+                else:
+                    st.error("❌ Please configure GitHub token and repository first.")
             
             if st.button("🔗 Test Connection", key="test_github"):
                 if github_token and owner and repo_name:

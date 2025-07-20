@@ -523,7 +523,7 @@ def main():
         
         with col2:
             st.markdown("**🤖 LLM Provider:**")
-            if st.session_state.api_client.is_configured():
+            if st.session_state.api_client.is_configured:
                 st.success(f"✅ {current_provider.title()} configured")
             else:
                 st.error(f"❌ {current_provider.title()} not configured")

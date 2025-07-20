@@ -44,7 +44,22 @@ A professional, Streamlit-based platform for creating, testing, versioning, and 
 
 The platform includes optional GitHub integration for version control and sharing of prompts.
 
-### Quick Toggle
+### Quick Setup (Recommended)
+
+**Auto-configure for current project:**
+```bash
+# One-command setup for current repository
+python scripts/setup_github.py
+```
+
+This script will:
+- 🎯 **Detect your current GitHub repository**
+- 🔑 **Securely prompt for your GitHub token**
+- 📁 **Create a prompts folder** in your repository
+- ⚙️ **Configure all environment variables**
+- ✅ **Set up everything automatically**
+
+### Manual Configuration
 
 **Enable/Disable GitHub integration:**
 ```bash
@@ -58,7 +73,8 @@ python scripts/toggle_github.py status
 **Or use the UI:**
 1. Go to the **Settings** tab
 2. Toggle **"Enable GitHub Integration"**
-3. Configure your repository settings
+3. Click **"🚀 Use Current Repository"** (if detected)
+4. Or manually configure repository settings
 
 ### Environment Variables
 
@@ -72,6 +88,9 @@ GITHUB_REPO=your_repo_name
 
 ### Features
 
+- ✅ **One-command setup** for current repository
+- ✅ **Automatic repository detection** from git remote
+- ✅ **Prompts folder creation** and management
 - ✅ **One-click toggle** in Settings
 - ✅ **Automatic prompt formatting** for GitHub
 - ✅ **Version control** with commit history
