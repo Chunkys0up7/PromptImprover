@@ -84,15 +84,15 @@ async def generate_and_save_prompt(task):
         )
         saved_prompt = st.session_state.db.save_prompt(new_prompt)
         
-        # Store the newly generated prompt for immediate display
-        st.session_state.newly_generated_prompt = {
+        # Store the newly generated prompt for review
+        st.session_state.pending_prompt_review = {
             'prompt_data': saved_prompt,
             'task': task,
-            'should_show_inline': True
+            'needs_review': True
         }
         
-        st.toast("✅ New prompt created! Check the '📋 Manage' tab to test it.", icon="🎉")
-        st.rerun() # Refresh the page to show the new prompt
+        st.toast("✅ Prompt generated! Review and test it below.", icon="🎉")
+        st.rerun() # Refresh the page to show the review section
     except Exception as e:
         st.toast(f"❌ Generation failed: {e}", icon="🔥")
         logger.error(f"Failed to generate and save prompt for task: {task}", exc_info=True)

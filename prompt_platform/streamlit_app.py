@@ -115,6 +115,107 @@ def main():
                     if st.form_submit_button("🔄 Refresh", use_container_width=True):
                         st.cache_data.clear()
                         st.rerun()
+        
+        # Review section for newly generated prompts
+        if 'pending_prompt_review' in st.session_state and st.session_state.pending_prompt_review.get('needs_review'):
+            st.markdown("---")
+            st.subheader("🎯 Review Generated Prompt")
+            
+            prompt_data = st.session_state.pending_prompt_review['prompt_data']
+            task = st.session_state.pending_prompt_review['task']
+            
+            # Show the generated prompt
+            st.markdown("**Generated Prompt:**")
+            st.code(prompt_data['prompt'], language='text')
+            
+            # Show generation process
+            if prompt_data.get('generation_process'):
+                with st.expander("🧠 View Generation Process", expanded=True):
+                    st.markdown(prompt_data['generation_process'])
+            
+            # Test the prompt inline
+            st.markdown("**🧪 Test Your Prompt:**")
+            
+            # Generate contextual test suggestions
+            from prompt_platform.ui_components import _generate_test_suggestions
+            test_suggestions = _generate_test_suggestions(task)
+            
+            st.markdown("**💡 Suggested Test Scenarios:**")
+            for i, suggestion in enumerate(test_suggestions, 1):
+                st.markdown(f"{i}. **{suggestion['scenario']}** - {suggestion['description']}")
+                st.markdown(f"   *Try:* `{suggestion['example']}`")
+            
+            # Inline chat interface for testing
+            st.markdown("**💬 Test Chat:**")
+            
+            # Initialize chat history for this review session
+            if 'review_chat_history' not in st.session_state:
+                st.session_state.review_chat_history = []
+            
+            # Display chat history
+            chat_container = st.container(height=300)
+            with chat_container:
+                for message in st.session_state.review_chat_history:
+                    with st.chat_message(message["role"]):
+                        st.markdown(message["content"])
+            
+            # Handle chat input
+            if user_input := st.chat_input("Test your prompt here..."):
+                sanitized_input = sanitize_text(user_input)
+                st.session_state.review_chat_history.append({"role": "user", "content": sanitized_input})
+                
+                # Generate response using the prompt
+                with st.spinner("🧠 Testing..."):
+                    try:
+                        # Fix placeholder on the fly for backwards compatibility
+                        prompt_template = prompt_data['prompt'].replace('{{input}}', '{input}', 1)
+                        final_prompt = prompt_template.format(input=sanitized_input)
+                        
+                        messages = [
+                            {"role": "system", "content": "You are a helpful AI assistant. Execute the user's instruction."},
+                            {"role": "user", "content": final_prompt}
+                        ]
+                        response_generator = st.session_state.api_client.stream_chat_completion(messages)
+                        assistant_response = st.write_stream(response_generator)
+                        
+                        st.session_state.review_chat_history.append({"role": "assistant", "content": assistant_response})
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Error testing prompt: {e}")
+            
+            # Action buttons
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                if st.button("✅ Approve & Save", key="approve_prompt", use_container_width=True):
+                    # Move to main management area
+                    st.session_state.newly_generated_prompt = {
+                        'prompt_data': prompt_data,
+                        'task': task,
+                        'should_show_inline': True
+                    }
+                    # Clear the review state
+                    del st.session_state.pending_prompt_review
+                    st.session_state.review_chat_history = []
+                    st.toast("✅ Prompt approved and moved to Manage tab!", icon="🎉")
+                    st.rerun()
+            
+            with col2:
+                if st.button("🔄 Regenerate", key="regenerate_prompt", use_container_width=True):
+                    # Clear current review and regenerate
+                    del st.session_state.pending_prompt_review
+                    st.session_state.review_chat_history = []
+                    st.toast("🔄 Regenerating prompt...", icon="🔄")
+                    st.rerun()
+            
+            with col3:
+                if st.button("❌ Discard", key="discard_prompt", use_container_width=True):
+                    # Remove from database and clear state
+                    st.session_state.db.delete_prompt_lineage(prompt_data['lineage_id'])
+                    del st.session_state.pending_prompt_review
+                    st.session_state.review_chat_history = []
+                    st.toast("❌ Prompt discarded", icon="🗑️")
+                    st.rerun()
 
     with tab2:
         st.subheader("Manage Existing Prompts")
