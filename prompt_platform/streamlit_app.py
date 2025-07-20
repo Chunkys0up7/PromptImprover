@@ -76,6 +76,12 @@ def main():
         from prompt_platform.ui_components import test_prompt_dialog
         test_prompt_dialog(st.session_state.testing_prompt_id)
 
+    # If an improvement is active, open the dialog immediately
+    if hasattr(st.session_state, 'improving_prompt_id') and st.session_state.improving_prompt_id:
+        # We need to import here to avoid a circular dependency
+        from prompt_platform.ui_components import improve_prompt_dialog
+        improve_prompt_dialog(st.session_state.improving_prompt_id)
+
     # Draw UI
     st.markdown("<h1 class='main-header'>✨ Prompt Platform</h1>", unsafe_allow_html=True)
     
@@ -210,20 +216,23 @@ def main():
                     st.rerun()
             
             with col2:
-                if st.button("🔄 Regenerate", key="regenerate_prompt", use_container_width=True):
-                    # Clear current review and regenerate
+                if st.button("✨ Improve", key="improve_prompt", use_container_width=True):
+                    # Set the prompt for improvement
+                    st.session_state.improving_prompt_id = prompt_data['id']
+                    st.session_state.improvement_request = f"Improve this prompt based on testing feedback: {task}"
+                    # Clear the review state but keep the prompt in database
                     del st.session_state.pending_prompt_review
                     st.session_state.review_chat_history = []
-                    st.toast("🔄 Regenerating prompt...", icon="🔄")
+                    st.toast("✨ Opening improvement dialog...", icon="✨")
                     st.rerun()
             
             with col3:
-                if st.button("❌ Discard", key="discard_prompt", use_container_width=True):
+                if st.button("🗑️ Delete", key="discard_prompt", use_container_width=True):
                     # Remove from database and clear state
                     st.session_state.db.delete_prompt_lineage(prompt_data['lineage_id'])
                     del st.session_state.pending_prompt_review
                     st.session_state.review_chat_history = []
-                    st.toast("❌ Prompt discarded", icon="🗑️")
+                    st.toast("🗑️ Prompt deleted", icon="🗑️")
                     st.rerun()
 
     with tab2:
