@@ -176,7 +176,7 @@ def _get_improvement_methodology(task_desc):
         return methodology
 
 def display_improvement_results(context="default"):
-    """Display the results of the latest prompt improvement."""
+    """Display the results of the latest prompt improvement using native Streamlit components."""
     if 'last_improvement' not in st.session_state:
         return
     
@@ -199,21 +199,53 @@ def display_improvement_results(context="default"):
             st.metric("Version", improvement['improved_prompt']['version'])
             st.metric("Lineage ID", improvement['improved_prompt']['lineage_id'][:8] + "...")
         
+        # Display changes using native Streamlit components
         st.markdown("**🔍 Changes Made:**")
-        # Use a container to ensure proper HTML rendering
-        diff_container = st.container()
-        with diff_container:
-            st.markdown(improvement['diff_html'], unsafe_allow_html=True)
         
+        # Original prompt section
+        st.markdown("**📝 Original Prompt:**")
+        with st.container():
+            st.code(improvement['original_prompt']['prompt'], language='text')
+        
+        st.markdown("---")
+        
+        # Improved prompt section
+        st.markdown("**✨ Improved Prompt:**")
+        with st.container():
+            st.code(improvement['improved_prompt']['prompt'], language='text')
+        
+        # Show key changes if available
+        if 'diff_html' in improvement and improvement['diff_html']:
+            st.markdown("**🔍 Key Changes:**")
+            # Extract changes from the diff (simplified approach)
+            original_lines = improvement['original_prompt']['prompt'].split('\n')
+            improved_lines = improvement['improved_prompt']['prompt'].split('\n')
+            
+            changes = []
+            for i, (orig, impr) in enumerate(zip(original_lines, improved_lines)):
+                if orig != impr:
+                    changes.append(f"Line {i+1}: Modified")
+            
+            # Add any new lines
+            if len(improved_lines) > len(original_lines):
+                for i in range(len(original_lines), len(improved_lines)):
+                    changes.append(f"Line {i+1}: Added")
+            
+            # Remove any deleted lines
+            if len(original_lines) > len(improved_lines):
+                for i in range(len(improved_lines), len(original_lines)):
+                    changes.append(f"Line {i+1}: Removed")
+            
+            if changes:
+                for change in changes:
+                    st.markdown(f"• {change}")
+            else:
+                st.info("No specific line changes detected")
+        
+        # Methodology section
         st.markdown("**🧠 Methodology Applied:**")
-        # Use a container with better styling for the methodology
-        methodology_container = st.container()
-        with methodology_container:
-            st.markdown(f"""
-            <div style="background-color: #f8f9fa; border-radius: 8px; padding: 16px; margin: 8px 0; border-left: 4px solid #007bff;">
-            {improvement['methodology']}
-            </div>
-            """, unsafe_allow_html=True)
+        with st.container():
+            st.markdown(improvement['methodology'])
         
         # Add a separator for better visual organization
         st.markdown("---")
