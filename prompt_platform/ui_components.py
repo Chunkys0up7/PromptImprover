@@ -331,13 +331,21 @@ def main_manager_view(prompts):
         # Check if this is the latest improvement
         is_latest_improvement = (
             'last_improvement' in st.session_state and 
-            st.session_state.last_improvement['improved_prompt']['id'] == row['id']
+            st.session_state.last_improvement and 
+            isinstance(st.session_state.last_improvement, dict) and
+            st.session_state.last_improvement.get('improved_prompt') and
+            isinstance(st.session_state.last_improvement['improved_prompt'], dict) and
+            st.session_state.last_improvement['improved_prompt'].get('id') == row['id']
         )
         
         # Check if this is a newly generated prompt
         is_newly_generated = (
             'newly_generated_prompt' in st.session_state and 
-            st.session_state.newly_generated_prompt.get('prompt_data', {}).get('id') == row['id']
+            st.session_state.newly_generated_prompt and 
+            isinstance(st.session_state.newly_generated_prompt, dict) and
+            st.session_state.newly_generated_prompt.get('prompt_data') and
+            isinstance(st.session_state.newly_generated_prompt['prompt_data'], dict) and
+            st.session_state.newly_generated_prompt['prompt_data'].get('id') == row['id']
         )
         
         if is_newly_generated:
