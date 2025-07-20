@@ -1,9 +1,11 @@
 """
-Main Streamlit application file for the Prompt Platform.
+Enhanced Streamlit application file for the Prompt Platform.
 
-This file is responsible for:
-- Initializing services and session state.
-- Orchestrating the UI by calling components from other modules.
+This file implements modern Streamlit best practices including:
+- Fragment-based architecture for performance optimization
+- Centralized state management
+- Enhanced error handling and user feedback
+- Modern theming and CSS architecture
 """
 import streamlit as st
 import asyncio
@@ -25,105 +27,35 @@ from prompt_platform.sanitizers import sanitize_text
 from prompt_platform.utils import run_async
 from prompt_platform.github_integration import commit_prompt_with_github_option
 
-# --- Page & Logging Setup ---
-st.set_page_config(page_title="Prompt Platform", layout="wide", initial_sidebar_state="expanded")
+# Import new architecture components
+from prompt_platform.state_manager import PromptPlatformState
+from prompt_platform.performance_manager import PerformanceManager
+from prompt_platform.error_handler import ErrorHandler
+from prompt_platform.styles import load_custom_styles, load_animation_styles
+from prompt_platform.fragments import (
+    prompt_generation_fragment,
+    prompt_management_fragment,
+    prompt_review_fragment,
+    performance_metrics_fragment,
+    settings_fragment
+)
+
+# --- Enhanced Page Configuration ---
+st.set_page_config(
+    page_title="Prompt Platform",
+    page_icon="✨",
+    layout="wide",
+    initial_sidebar_state="expanded",
+    menu_items={
+        'Get Help': 'https://docs.streamlit.io/',
+        'About': "AI-Powered Prompt Engineering Platform v2.0"
+    }
+)
 logger = logging.getLogger(__name__)
 
-# --- CSS ---
-st.markdown("""
-<style>
-.main-header { font-size: 2.5rem; font-weight: 700; color: #1e3a8a; text-align: center; margin-bottom: 2rem; background: linear-gradient(90deg, #3b82f6, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-.stButton > button { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 0.5rem; padding: 0.75rem 1.5rem; font-weight: 600; transition: all 0.3s ease; }
-.stButton > button:hover { transform: translateY(-2px); box-shadow: 0 8px 15px rgba(102, 126, 234, 0.4); }
-
-/* Enhanced button styling for manage prompts page */
-.prompt-actions { margin: 1rem 0; }
-.prompt-actions .stButton > button { 
-    margin: 0.25rem 0; 
-    font-size: 0.9rem; 
-    min-height: 2.5rem; 
-    border-radius: 0.375rem; 
-    transition: all 0.2s ease; 
-}
-
-/* Primary action buttons */
-.prompt-actions .stButton > button[data-testid*="test_"],
-.prompt-actions .stButton > button[data-testid*="improve_"] {
-    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-    border: 2px solid #3b82f6;
-    font-weight: 700;
-}
-
-.prompt-actions .stButton > button[data-testid*="test_"]:hover,
-.prompt-actions .stButton > button[data-testid*="improve_"]:hover {
-    background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
-}
-
-/* Secondary action buttons */
-.prompt-actions .stButton > button[data-testid*="optimize_"],
-.prompt-actions .stButton > button[data-testid*="lineage_"],
-.prompt-actions .stButton > button[data-testid*="commit_"] {
-    background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
-    border: 2px solid #6b7280;
-    font-weight: 600;
-}
-
-.prompt-actions .stButton > button[data-testid*="optimize_"]:hover,
-.prompt-actions .stButton > button[data-testid*="lineage_"]:hover,
-.prompt-actions .stButton > button[data-testid*="commit_"]:hover {
-    background: linear-gradient(135deg, #4b5563 0%, #374151 100%);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(107, 114, 128, 0.4);
-}
-
-/* Disabled buttons */
-.prompt-actions .stButton > button:disabled {
-    background: linear-gradient(135deg, #d1d5db 0%, #9ca3af 100%) !important;
-    border-color: #d1d5db !important;
-    color: #6b7280 !important;
-    cursor: not-allowed;
-    transform: none !important;
-    box-shadow: none !important;
-}
-
-/* Destructive action button */
-.prompt-actions .stButton > button[data-testid*="delete_"] {
-    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-    border: 2px solid #ef4444;
-    font-weight: 600;
-    color: white;
-}
-
-.prompt-actions .stButton > button[data-testid*="delete_"]:hover {
-    background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
-}
-
-/* Visual separator styling */
-.prompt-separator { 
-    border-top: 2px solid #e5e7eb; 
-    margin: 1rem 0; 
-    opacity: 0.6; 
-}
-
-/* Container styling for better visual grouping */
-.prompt-container { 
-    border: 1px solid #e5e7eb; 
-    border-radius: 0.75rem; 
-    padding: 1.5rem; 
-    margin: 1rem 0; 
-    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-/* Button group spacing */
-.button-group { margin: 0.5rem 0; }
-.button-group .stButton { margin: 0.25rem; }
-</style>
-""", unsafe_allow_html=True)
+# --- Modern CSS Styling ---
+st.markdown(load_custom_styles(), unsafe_allow_html=True)
+st.markdown(load_animation_styles(), unsafe_allow_html=True)
 
 # --- Data Loading ---
 @st.cache_data
@@ -134,48 +66,62 @@ def load_all_prompts():
 
 # --- Main App ---
 def main():
-    """Initializes services and renders the main application layout."""
-    # Initialize services and store them in session state ONCE
-    if 'db' not in st.session_state:
-        logger.info("Initializing services for the first time for this session.")
-        try:
-            st.session_state.db = PromptDB()
-            st.session_state.api_client = APIClient()
-            st.session_state.prompt_generator = PromptGenerator(st.session_state.db)
-            st.session_state.version_manager = VersionManager(st.session_state.db)
-        except Exception as e:
-            st.error(f"Fatal Error: Could not initialize services. {e}")
-            logger.critical(f"Service initialization failed: {e}", exc_info=True)
-            st.stop()
+    """Enhanced main application with modern architecture and performance optimization."""
+    
+    # Initialize core systems with error handling
+    try:
+        # Initialize state manager
+        if 'state_manager' not in st.session_state:
+            st.session_state.state_manager = PromptPlatformState()
+        
+        # Initialize performance manager
+        if 'performance_manager' not in st.session_state:
+            st.session_state.performance_manager = PerformanceManager()
+        
+        # Initialize error handler
+        if 'error_handler' not in st.session_state:
+            st.session_state.error_handler = ErrorHandler()
+        
+        # Initialize services and store them in session state ONCE
+        if 'db' not in st.session_state:
+            logger.info("Initializing services for the first time for this session.")
+            try:
+                st.session_state.db = PromptDB()
+                st.session_state.api_client = APIClient()
+                st.session_state.prompt_generator = PromptGenerator(st.session_state.db)
+                st.session_state.version_manager = VersionManager(st.session_state.db)
+            except Exception as e:
+                st.session_state.error_handler._show_user_friendly_error("Service Initialization", e)
+                logger.critical(f"Service initialization failed: {e}", exc_info=True)
+                st.stop()
+        
+        # Set request tracking
+        st.session_state.request_id_var = request_id_var
+        st.session_state.uuid = uuid
+        
+    except Exception as e:
+        st.error(f"Fatal Error: Could not initialize application systems. {e}")
+        logger.critical(f"Application initialization failed: {e}", exc_info=True)
+        st.stop()
 
-    st.session_state.request_id_var = request_id_var
-    st.session_state.uuid = uuid
-
-    # Initialize other session state variables
-    if "test_chat_history" not in st.session_state:
-        st.session_state.test_chat_history = []
-    if "test_prompt_id" not in st.session_state:
-        st.session_state.test_prompt_id = None
-    if "testing_prompt_id" not in st.session_state:
-        st.session_state.testing_prompt_id = None
-
-    # If a test is active, open the dialog immediately
-    if st.session_state.testing_prompt_id:
-        # We need to import here to avoid a circular dependency
-        from prompt_platform.ui_components import test_prompt_dialog
-        test_prompt_dialog(st.session_state.testing_prompt_id)
-
-    # If an improvement is active, open the dialog immediately (only if no test dialog)
-    elif hasattr(st.session_state, 'improving_prompt_id') and st.session_state.improving_prompt_id:
-        # We need to import here to avoid a circular dependency
-        from prompt_platform.ui_components import improve_prompt_dialog
-        improve_prompt_dialog(st.session_state.improving_prompt_id)
-
-    # If viewing lineage is active, open the dialog immediately (only if no other dialogs)
-    elif hasattr(st.session_state, 'viewing_lineage_id') and st.session_state.viewing_lineage_id:
-        # We need to import here to avoid a circular dependency
-        from prompt_platform.ui_components import view_lineage_dialog
-        view_lineage_dialog(st.session_state.viewing_lineage_id)
+    # Handle active dialogs using state manager (simplified)
+    try:
+        # Check for active dialogs and handle them appropriately
+        if hasattr(st.session_state, 'testing_prompt_id') and st.session_state.testing_prompt_id:
+            from prompt_platform.ui_components import test_prompt_dialog
+            test_prompt_dialog(st.session_state.testing_prompt_id)
+        
+        if hasattr(st.session_state, 'improving_prompt_id') and st.session_state.improving_prompt_id:
+            from prompt_platform.ui_components import improve_prompt_dialog
+            improve_prompt_dialog(st.session_state.improving_prompt_id)
+        
+        if hasattr(st.session_state, 'viewing_lineage_id') and st.session_state.viewing_lineage_id:
+            from prompt_platform.ui_components import view_lineage_dialog
+            view_lineage_dialog(st.session_state.viewing_lineage_id)
+        
+    except Exception as e:
+        logger.error(f"Error handling dialogs: {e}")
+        # Continue without dialogs rather than crashing
 
     # Draw UI
     st.markdown("<h1 class='main-header'>✨ Prompt Platform</h1>", unsafe_allow_html=True)
@@ -287,6 +233,7 @@ def main():
         **💡 Pro Tip:** The more you test and provide feedback, the better DSPy can optimize your prompts using the accumulated training data!
         """)
     
+    # Enhanced tab system with modern styling and fragments
     tab1, tab2, tab3, tab4 = st.tabs(["🚀 Generate", "📋 Manage", "📊 Dashboard", "⚙️ Settings"])
 
     with tab1:
@@ -295,174 +242,11 @@ def main():
         # Display improvement results if available
         display_improvement_results("generate")
         
-        # Generate prompt form with more space
-        with st.container():
-            st.markdown("### Create a New Prompt")
-            st.markdown("Describe what you want your AI assistant to do. Be specific about the task, role, and expected output.")
-            
-            # Add helpful tips
-            with st.expander("💡 Tips for Writing Effective Task Descriptions", expanded=False):
-                st.markdown("""
-                **🎯 Be Specific:**
-                - Clearly define the task and desired outcome
-                - Specify the AI's role (e.g., "expert consultant", "creative writer")
-                - Include any constraints or requirements
-                
-                **📋 Include Context:**
-                - Describe the target audience or use case
-                - Mention tone, style, or format preferences
-                - Specify any technical requirements
-                
-                **✅ Good Examples:**
-                - "Create a prompt for a business consultant to help startups develop marketing strategies"
-                - "Design a prompt for a creative writer to generate engaging blog posts about technology"
-                - "Build a prompt for a data analyst to explain complex statistics in simple terms"
-                
-                **❌ Avoid:**
-                - Vague descriptions like "make it better" or "improve this"
-                - Too many requirements in one prompt
-                - Unrealistic expectations or conflicting instructions
-                """)
-            
-            with st.form("new_prompt_form", clear_on_submit=True):
-                task = sanitize_text(st.text_area(
-                    "**Task Description:**", 
-                    height=200,
-                    placeholder="Example: Create a prompt that helps users write professional emails. The AI should act as a business communication expert, provide clear structure, and suggest appropriate tone and language."
-                ))
-                
-                col1, col2 = st.columns([1, 1])
-                with col1:
-                    if st.form_submit_button("🚀 Generate Prompt", use_container_width=True):
-                        if task:
-                            st.session_state.request_id_var.set(str(st.session_state.uuid.uuid4()))
-                            with st.spinner("Generating your prompt..."):
-                                run_async(generate_and_save_prompt(task))
-                                st.cache_data.clear() # To show the new prompt
-                                st.rerun()
-                        else:
-                            st.warning("Please provide a task description.")
-                
-                with col2:
-                    if st.form_submit_button("🔄 Refresh", use_container_width=True):
-                        st.cache_data.clear()
-                        st.rerun()
+        # Use fragment-based generation
+        prompt_generation_fragment()
         
-        # Review section for newly generated prompts
-        if 'pending_prompt_review' in st.session_state and st.session_state.pending_prompt_review.get('needs_review'):
-            st.markdown("---")
-            st.subheader("🎯 Review Generated Prompt")
-            
-            prompt_data = st.session_state.pending_prompt_review['prompt_data']
-            task = st.session_state.pending_prompt_review['task']
-            
-            # Create two columns for better layout
-            col1, col2 = st.columns([1, 1])
-            
-            with col1:
-                # Show the generated prompt
-                st.markdown("**📝 Generated Prompt:**")
-                st.code(prompt_data['prompt'], language='text')
-                
-                # Show generation process - always visible
-                if prompt_data.get('generation_process'):
-                    st.markdown("**🧠 Generation Process:**")
-                    st.markdown(prompt_data['generation_process'])
-            
-            with col2:
-                # Test the prompt inline
-                st.markdown("**🧪 Test Your Prompt:**")
-                
-                # Generate contextual test suggestions (if any)
-                from prompt_platform.ui_components import _generate_test_suggestions
-                test_suggestions = _generate_test_suggestions(task)
-                
-                # Only show suggestions if we have them
-                if test_suggestions:
-                    st.markdown("**💡 Suggested Test Scenarios:**")
-                    for i, suggestion in enumerate(test_suggestions, 1):
-                        st.markdown(f"{i}. **{suggestion['scenario']}** - {suggestion['description']}")
-                        st.markdown(f"   *Try:* `{suggestion['example']}`")
-                
-                # Inline chat interface for testing
-                st.markdown("**💬 Test Chat:**")
-                
-                # Initialize chat history for this review session
-                if 'review_chat_history' not in st.session_state:
-                    st.session_state.review_chat_history = []
-                
-                # Display chat history
-                chat_container = st.container(height=300)
-                with chat_container:
-                    for message in st.session_state.review_chat_history:
-                        with st.chat_message(message["role"]):
-                            st.markdown(message["content"])
-                
-                # Handle chat input
-                if user_input := st.chat_input("Test your prompt here..."):
-                    sanitized_input = sanitize_text(user_input)
-                    st.session_state.review_chat_history.append({"role": "user", "content": sanitized_input})
-                    
-                    # Generate response using the prompt
-                    with st.spinner("🧠 Testing..."):
-                        try:
-                            # Fix placeholder on the fly for backwards compatibility
-                            prompt_template = prompt_data['prompt'].replace('{{input}}', '{input}', 1)
-                            final_prompt = prompt_template.format(input=sanitized_input)
-                            
-                            messages = [
-                                {"role": "system", "content": "You are a helpful AI assistant. Execute the user's instruction."},
-                                {"role": "user", "content": final_prompt}
-                            ]
-                            response_generator = st.session_state.api_client.stream_chat_completion(messages)
-                            assistant_response = st.write_stream(response_generator)
-                            
-                            st.session_state.review_chat_history.append({"role": "assistant", "content": assistant_response})
-                            # Don't rerun immediately to preserve the generation process display
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Error testing prompt: {e}")
-            
-            # Action buttons - full width below the columns
-            st.markdown("---")
-            col1, col2, col3 = st.columns(3)
-            
-            with col1:
-                if st.button("✅ Approve & Save", key="approve_prompt", use_container_width=True):
-                    # Move to main management area
-                    st.session_state.newly_generated_prompt = {
-                        'prompt_data': prompt_data,
-                        'task': task,
-                        'should_show_inline': True
-                    }
-                    # Clear the review state
-                    del st.session_state.pending_prompt_review
-                    st.session_state.review_chat_history = []
-                    st.toast("✅ Prompt approved and moved to Manage tab!", icon="🎉")
-                    st.rerun()
-            
-            with col2:
-                if st.button("✨ Improve", key="improve_prompt", use_container_width=True):
-                    # Set the prompt for improvement
-                    st.session_state.improving_prompt_id = prompt_data['id']
-                    st.session_state.improvement_request = f"Improve this prompt based on testing feedback: {task}"
-                    # Clear the review state but keep the prompt in database
-                    del st.session_state.pending_prompt_review
-                    st.session_state.review_chat_history = []
-                    st.toast("✨ Opening improvement dialog...", icon="✨")
-                    st.rerun()
-            
-            with col3:
-                if st.button("🗑️ Delete", key="discard_prompt", use_container_width=True):
-                    # Remove from database and clear state
-                    st.session_state.db.delete_prompt_lineage(prompt_data['lineage_id'])
-                    del st.session_state.pending_prompt_review
-                    st.session_state.review_chat_history = []
-                    st.toast("🗑️ Prompt deleted", icon="🗑️")
-                    st.rerun()
-            
-            # GitHub integration option
-            commit_prompt_with_github_option(prompt_data)
+        # Use fragment-based review
+        prompt_review_fragment()
 
     with tab2:
         st.subheader("Manage Existing Prompts")
@@ -511,127 +295,19 @@ def main():
             4. **Repeat** → Continue testing and improving
             """)
         
-        if st.button("🔄 Refresh Prompts", use_container_width=True):
-            st.cache_data.clear()
-            st.rerun()
-        prompts = load_all_prompts()
-        main_manager_view(prompts)
+        # Use fragment-based management
+        prompt_management_fragment()
 
     with tab3:
         render_dashboard()
+        
+        # Add performance metrics if enabled
+        if st.checkbox("Show Performance Metrics", value=False):
+            performance_metrics_fragment()
 
     with tab4:
-        st.subheader("⚙️ Settings")
-        
-        # GitHub Integration Settings
-        from prompt_platform.github_integration import GitHubIntegration
-        github_integration = GitHubIntegration()
-        github_config = github_integration.get_github_settings_ui()
-        
-        st.markdown("---")
-        
-        # LLM Provider Settings
-        st.subheader("🤖 LLM Provider Configuration")
-        
-        current_provider = os.getenv('LLM_PROVIDER', 'perplexity')
-        
-        with st.expander("🔄 Switch LLM Provider", expanded=False):
-            st.info("💡 Change your LLM provider here. Make sure to set the required environment variables for your chosen provider.")
-            
-            provider = st.selectbox(
-                "Select LLM Provider",
-                options=['perplexity', 'custom_token', 'bedrock', 'openai', 'anthropic'],
-                index=['perplexity', 'custom_token', 'bedrock', 'openai', 'anthropic'].index(current_provider),
-                help="Choose your preferred LLM provider"
-            )
-            
-            if provider != current_provider:
-                st.warning(f"⚠️ To switch to {provider}, set the LLM_PROVIDER environment variable and restart the app.")
-                st.code(f"export LLM_PROVIDER={provider}")
-            
-            # Show provider-specific configuration
-            if provider == 'perplexity':
-                st.success("✅ Perplexity AI - Current default provider")
-                st.info("Set PERPLEXITY_API_KEY environment variable")
-                
-            elif provider == 'custom_token':
-                st.info("🔧 Custom Token-Based API")
-                st.markdown("""
-                **Required Environment Variables:**
-                - `CUSTOM_API_BASE_URL` - Your API endpoint
-                - `CUSTOM_AUTH_URL` - Authentication endpoint
-                - `CUSTOM_CLIENT_ID` - Client ID
-                - `CUSTOM_CLIENT_SECRET` - Client secret
-                - `CUSTOM_MODEL_NAME` - Model name
-                """)
-                
-            elif provider == 'bedrock':
-                st.info("☁️ AWS Bedrock")
-                st.markdown("""
-                **Required Environment Variables:**
-                - `AWS_ACCESS_KEY_ID` - AWS access key
-                - `AWS_SECRET_ACCESS_KEY` - AWS secret key
-                - `AWS_REGION` - AWS region (default: us-east-1)
-                - `BEDROCK_MODEL_ID` - Bedrock model ID
-                """)
-                
-            elif provider == 'openai':
-                st.info("🤖 OpenAI")
-                st.markdown("""
-                **Required Environment Variables:**
-                - `OPENAI_API_KEY` - OpenAI API key
-                - `OPENAI_MODEL` - Model name (default: gpt-4o)
-                """)
-                
-            elif provider == 'anthropic':
-                st.info("🧠 Anthropic Claude")
-                st.markdown("""
-                **Required Environment Variables:**
-                - `ANTHROPIC_API_KEY` - Anthropic API key
-                - `ANTHROPIC_MODEL` - Model name (default: claude-3-5-sonnet-20241022)
-                """)
-        
-        # Current Configuration Status
-        st.markdown("---")
-        st.subheader("📊 Current Configuration Status")
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.markdown("**🔗 GitHub Integration:**")
-            if github_integration.is_enabled():
-                if github_integration.is_configured():
-                    repo_info = github_integration.get_repository_info()
-                    st.success(f"✅ Enabled - {repo_info['owner']}/{repo_info['repo']}")
-                else:
-                    st.warning("⚠️ Enabled but not configured")
-            else:
-                st.info("🔴 Disabled")
-        
-        with col2:
-            st.markdown("**🤖 LLM Provider:**")
-            if st.session_state.api_client.is_configured:
-                st.success(f"✅ {current_provider.title()} configured")
-            else:
-                st.error(f"❌ {current_provider.title()} not configured")
-        
-        # Documentation Links
-        st.markdown("---")
-        st.subheader("📚 Documentation")
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.markdown("**🔗 Quick Links:**")
-            st.markdown("- [LLM Provider Guide](docs/llm_provider_guide.md)")
-            st.markdown("- [Development Guide](docs/DEVELOPMENT.md)")
-            st.markdown("- [Database Migration](docs/database_migration_guide.md)")
-        
-        with col2:
-            st.markdown("**📖 GitHub Integration:**")
-            st.markdown("- [GitHub Token Setup](https://github.com/settings/tokens)")
-            st.markdown("- [Repository Permissions](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/managing-repository-settings/managing-teams-and-people-with-access-to-your-repository)")
-            st.markdown("- [Branch Protection](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/defining-the-mergeability-of-pull-requests/managing-a-branch-protection-rule)")
+        # Use fragment-based settings
+        settings_fragment()
 
 if __name__ == "__main__":
     main() 

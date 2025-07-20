@@ -219,11 +219,23 @@ class GitHubIntegration:
                 }
                 
             except Exception as e:
-                if "already exists" in str(e).lower():
+                error_message = str(e).lower()
+                if "already exists" in error_message or "sha" in error_message:
                     # File already exists, update it
                     try:
                         # Get the current file
                         file = repository.get_contents(filename, ref=branch)
+                        
+                        # Check if content is actually different
+                        if file.content == content:
+                            return {
+                                'success': True,
+                                'message': f'Prompt already exists on GitHub: {filename}',
+                                'filename': filename,
+                                'url': file.html_url,
+                                'sha': file.sha,
+                                'note': 'No changes needed - file is already up to date'
+                            }
                         
                         # Update the file
                         result = repository.update_file(
@@ -255,9 +267,25 @@ class GitHubIntegration:
                     
         except Exception as e:
             logger.error(f"Failed to commit to GitHub: {e}")
+            
+            # Provide more user-friendly error messages
+            error_str = str(e).lower()
+            if "sha" in error_str and "wasn't supplied" in error_str:
+                user_message = "This prompt has already been committed to GitHub with the same content. No changes needed."
+            elif "already exists" in error_str:
+                user_message = "This prompt already exists on GitHub. The system will update it if there are changes."
+            elif "not found" in error_str:
+                user_message = "Repository or branch not found. Please check your GitHub configuration."
+            elif "unauthorized" in error_str or "401" in error_str:
+                user_message = "GitHub authentication failed. Please check your GitHub token."
+            elif "forbidden" in error_str or "403" in error_str:
+                user_message = "Access denied. Please check your GitHub permissions."
+            else:
+                user_message = f"GitHub error: {str(e)}"
+            
             return {
                 'success': False,
-                'error': f'Failed to commit to GitHub: {str(e)}'
+                'error': user_message
             }
     
     def get_github_settings_ui(self) -> Dict[str, Any]:

@@ -433,7 +433,14 @@ def main_manager_view(prompts):
                 try:
                     result = github_integration.commit_prompt_to_github(row)
                     if result.get('success'):
-                        st.success(f"✅ {result.get('message', 'Prompt committed to GitHub!')}")
+                        # Show success message with appropriate styling
+                        if result.get('note'):
+                            st.info(f"ℹ️ {result.get('message', 'Prompt processed on GitHub')}")
+                            st.info(f"💡 {result.get('note')}")
+                        else:
+                            st.success(f"✅ {result.get('message', 'Prompt committed to GitHub!')}")
+                        
+                        # Show GitHub link if available
                         if result.get('url'):
                             st.info(f"🔗 View at: {result['url']}")
                     else:

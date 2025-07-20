@@ -207,44 +207,81 @@ def display_improvement_results(context="default"):
     
     improvement = st.session_state.last_improvement
     
+    # Add null checks to prevent TypeError
+    if not improvement or not isinstance(improvement, dict):
+        st.warning("No improvement results available.")
+        return
+    
+    # Check if required keys exist
+    required_keys = ['improvement_request', 'improved_prompt', 'original_prompt', 'methodology']
+    missing_keys = [key for key in required_keys if key not in improvement]
+    if missing_keys:
+        st.error(f"Improvement data is incomplete. Missing: {', '.join(missing_keys)}")
+        return
+    
     with st.expander("🎯 **Latest Improvement Results**", expanded=True):
         col1, col2 = st.columns([2, 1])
         
         with col1:
             st.markdown("**📝 Improvement Request:**")
-            if isinstance(improvement['improvement_request'], dict):
-                st.info(f"**User Input:** {improvement['improvement_request'].get('user_input', 'N/A')}")
-                st.info(f"**Desired Output:** {improvement['improvement_request'].get('desired_output', 'N/A')}")
-                st.info(f"**Critique:** {improvement['improvement_request'].get('critique', 'N/A')}")
+            improvement_request = improvement.get('improvement_request')
+            if improvement_request and isinstance(improvement_request, dict):
+                st.info(f"**User Input:** {improvement_request.get('user_input', 'N/A')}")
+                st.info(f"**Desired Output:** {improvement_request.get('desired_output', 'N/A')}")
+                st.info(f"**Critique:** {improvement_request.get('critique', 'N/A')}")
+            elif improvement_request:
+                st.info(str(improvement_request))
             else:
-                st.info(improvement['improvement_request'])
+                st.info("No improvement request details available.")
         
         with col2:
             st.markdown("**📊 Version Info:**")
-            st.metric("Version", improvement['improved_prompt']['version'])
-            st.metric("Lineage ID", improvement['improved_prompt']['lineage_id'][:8] + "...")
+            improved_prompt = improvement.get('improved_prompt', {})
+            if improved_prompt:
+                version = improved_prompt.get('version', 'N/A')
+                lineage_id = improved_prompt.get('lineage_id', 'N/A')
+                st.metric("Version", version)
+                if lineage_id and lineage_id != 'N/A':
+                    st.metric("Lineage ID", lineage_id[:8] + "...")
+                else:
+                    st.metric("Lineage ID", "N/A")
+            else:
+                st.metric("Version", "N/A")
+                st.metric("Lineage ID", "N/A")
         
         # Display changes using native Streamlit components
         st.markdown("**🔍 Changes Made:**")
         
         # Original prompt section
         st.markdown("**📝 Original Prompt:**")
-        with st.container():
-            st.code(improvement['original_prompt']['prompt'], language='text')
+        original_prompt = improvement.get('original_prompt', {})
+        if original_prompt and original_prompt.get('prompt'):
+            with st.container():
+                st.code(original_prompt['prompt'], language='text')
+        else:
+            st.warning("Original prompt not available.")
         
         st.markdown("---")
         
         # Improved prompt section
         st.markdown("**✨ Improved Prompt:**")
-        with st.container():
-            st.code(improvement['improved_prompt']['prompt'], language='text')
+        improved_prompt = improvement.get('improved_prompt', {})
+        if improved_prompt and improved_prompt.get('prompt'):
+            with st.container():
+                st.code(improved_prompt['prompt'], language='text')
+        else:
+            st.warning("Improved prompt not available.")
         
         # Show key changes if available
         if 'diff_html' in improvement and improvement['diff_html']:
             st.markdown("**🔍 Key Changes:**")
             # Extract changes from the diff (simplified approach)
-            original_lines = improvement['original_prompt']['prompt'].split('\n')
-            improved_lines = improvement['improved_prompt']['prompt'].split('\n')
+            original_prompt_text = original_prompt.get('prompt', '') if original_prompt else ''
+            improved_prompt_text = improved_prompt.get('prompt', '') if improved_prompt else ''
+            
+            if original_prompt_text and improved_prompt_text:
+                original_lines = original_prompt_text.split('\n')
+                improved_lines = improved_prompt_text.split('\n')
             
             changes = []
             for i, (orig, impr) in enumerate(zip(original_lines, improved_lines)):
@@ -286,8 +323,9 @@ def display_improvement_results(context="default"):
         
         # Methodology section
         st.markdown("**🧠 Methodology Applied:**")
+        methodology = improvement.get('methodology', 'No methodology information available.')
         with st.container():
-            st.markdown(improvement['methodology'])
+            st.markdown(methodology)
         
         # Add action buttons for testing and improving
         st.markdown("---")
@@ -298,8 +336,9 @@ def display_improvement_results(context="default"):
         with col1:
             # Test the improved prompt
             test_key = f"test_improved_{hash(str(improvement))}_{context}_{id(improvement)}"
-            if st.button("🧪 Test Improved Prompt", key=test_key, use_container_width=True):
-                st.session_state.testing_prompt_id = improvement['improved_prompt']['id']
+            improved_prompt_id = improved_prompt.get('id') if improved_prompt else None
+            if st.button("🧪 Test Improved Prompt", key=test_key, use_container_width=True) and improved_prompt_id:
+                st.session_state.testing_prompt_id = improved_prompt_id
                 st.session_state.test_chat_history = []
                 st.toast("🧪 Opening test dialog for improved prompt...", icon="🧪")
                 st.rerun()
