@@ -75,8 +75,12 @@ def prompt_management_fragment():
     from prompt_platform.ui_components import main_manager_view
     
     # Use optimized loading
-    prompts_data = PerformanceManager.load_prompts_optimized()
-    prompts = prompts_data['prompts']
+    try:
+        prompts_data = PerformanceManager.load_prompts_optimized()
+        prompts = prompts_data.get('prompts', []) if prompts_data else []
+    except Exception as e:
+        logger.error(f"Error loading prompts: {e}")
+        prompts = []
     
     if st.button("🔄 Refresh Prompts", use_container_width=True):
         st.cache_data.clear()
@@ -87,7 +91,10 @@ def prompt_management_fragment():
 @st.fragment
 def prompt_review_fragment():
     """Fragment for reviewing newly generated prompts"""
-    if 'pending_prompt_review' not in st.session_state or not st.session_state.pending_prompt_review.get('needs_review'):
+    if ('pending_prompt_review' not in st.session_state or 
+        not st.session_state.pending_prompt_review or 
+        not isinstance(st.session_state.pending_prompt_review, dict) or
+        not st.session_state.pending_prompt_review.get('needs_review')):
         return
     
     st.markdown("---")

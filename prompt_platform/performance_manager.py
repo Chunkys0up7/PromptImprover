@@ -30,6 +30,19 @@ class PerformanceManager:
         start_time = time.time()
         
         try:
+            # Check if database is available
+            if 'db' not in st.session_state or not st.session_state.db:
+                logger.warning("Database not available in session state")
+                return {
+                    'prompts': [],
+                    'total_count': 0,
+                    'page': page,
+                    'page_size': page_size,
+                    'total_pages': 0,
+                    'load_time': 0,
+                    'error': 'Database not available'
+                }
+            
             # Get paginated prompts
             prompts = st.session_state.db.get_all_prompts()  # For now, keep existing method
             
@@ -67,10 +80,17 @@ class PerformanceManager:
     def get_heavy_resources():
         """Cache expensive resource initialization"""
         logger.info("Initializing heavy resources...")
-        return {
-            'prompt_generator': st.session_state.prompt_generator,
-            'version_manager': st.session_state.version_manager,
-        }
+        try:
+            return {
+                'prompt_generator': st.session_state.get('prompt_generator'),
+                'version_manager': st.session_state.get('version_manager'),
+            }
+        except Exception as e:
+            logger.error(f"Error getting heavy resources: {e}")
+            return {
+                'prompt_generator': None,
+                'version_manager': None,
+            }
     
     def run_async_operation(self, coro, timeout: int = 30, operation_name: str = "async_operation"):
         """Run async operations with timeout and proper error handling"""
