@@ -32,91 +32,152 @@ def escape_markdown(text: str) -> str:
     # Incomplete list, but covers common cases for table corruption
     return re.sub(r"([\\`*_{}[\]()#+.!|])", r"\\\1", text)
 
-def _generate_contextual_samples(task: str) -> list:
-    """Generate contextual sample inputs based on the prompt task."""
+def _generate_test_suggestions(task: str) -> list:
+    """Generate contextual test suggestions based on the prompt task."""
     task_lower = task.lower()
     
-    # Define sample inputs for different types of tasks
-    samples = {
+    # Define test scenarios for different types of tasks
+    scenarios = {
         'joke': [
-            "Tell me a funny joke about programming",
-            "Make me laugh with a dad joke",
-            "Share a witty one-liner",
-            "Tell me a joke about technology"
+            {
+                'scenario': 'Basic Joke Request',
+                'description': 'Test if the prompt can generate a simple joke',
+                'example': 'Tell me a joke'
+            },
+            {
+                'scenario': 'Topic-Specific Joke',
+                'description': 'Test if it can create jokes about specific topics',
+                'example': 'Tell me a joke about programming'
+            },
+            {
+                'scenario': 'Joke Style Variation',
+                'description': 'Test different joke styles and formats',
+                'example': 'Tell me a dad joke about technology'
+            }
         ],
-        'story': [
-            "Write a short story about a robot",
-            "Create a tale about time travel",
-            "Tell me a story about friendship",
-            "Write a mystery story"
+        'email': [
+            {
+                'scenario': 'Professional Email',
+                'description': 'Test formal business communication',
+                'example': 'Write an email to schedule a meeting with a client'
+            },
+            {
+                'scenario': 'Follow-up Email',
+                'description': 'Test follow-up communication',
+                'example': 'Write a follow-up email after a job interview'
+            },
+            {
+                'scenario': 'Apology Email',
+                'description': 'Test sensitive communication',
+                'example': 'Write an email apologizing for a missed deadline'
+            }
         ],
         'explain': [
-            "Explain how machine learning works",
-            "What is quantum computing?",
-            "Explain the concept of blockchain",
-            "How does photosynthesis work?"
+            {
+                'scenario': 'Simple Explanation',
+                'description': 'Test basic explanation capability',
+                'example': 'Explain how photosynthesis works'
+            },
+            {
+                'scenario': 'Complex Topic',
+                'description': 'Test ability to explain complex concepts',
+                'example': 'Explain quantum computing in simple terms'
+            },
+            {
+                'scenario': 'Step-by-Step Guide',
+                'description': 'Test instructional explanation',
+                'example': 'Explain how to bake a cake step by step'
+            }
         ],
         'analyze': [
-            "Analyze the benefits of renewable energy",
-            "What are the pros and cons of remote work?",
-            "Analyze the impact of social media",
-            "Evaluate the effectiveness of online learning"
+            {
+                'scenario': 'Pros and Cons',
+                'description': 'Test balanced analysis',
+                'example': 'Analyze the benefits and drawbacks of remote work'
+            },
+            {
+                'scenario': 'Data Analysis',
+                'description': 'Test analytical thinking',
+                'example': 'Analyze the impact of social media on mental health'
+            },
+            {
+                'scenario': 'Comparative Analysis',
+                'description': 'Test comparison skills',
+                'example': 'Compare traditional education vs online learning'
+            }
         ],
         'write': [
-            "Write a professional email",
-            "Create a persuasive argument",
-            "Write a product description",
-            "Draft a meeting agenda"
+            {
+                'scenario': 'Creative Writing',
+                'description': 'Test creative content generation',
+                'example': 'Write a short story about time travel'
+            },
+            {
+                'scenario': 'Professional Writing',
+                'description': 'Test formal writing skills',
+                'example': 'Write a product description for a smartphone'
+            },
+            {
+                'scenario': 'Persuasive Writing',
+                'description': 'Test argumentative skills',
+                'example': 'Write a persuasive argument for renewable energy'
+            }
         ],
         'help': [
-            "Help me plan a vacation",
-            "Assist me with a difficult decision",
-            "Help me organize my schedule",
-            "Guide me through a problem"
-        ],
-        'translate': [
-            "Translate this to Spanish",
-            "Convert this to formal language",
-            "Rewrite this in simple terms",
-            "Translate this technical jargon"
-        ],
-        'summarize': [
-            "Summarize this article",
-            "Give me the key points",
-            "Create a brief overview",
-            "Condense this information"
+            {
+                'scenario': 'Problem Solving',
+                'description': 'Test assistance with challenges',
+                'example': 'Help me solve a difficult math problem'
+            },
+            {
+                'scenario': 'Planning Assistance',
+                'description': 'Test planning and organization help',
+                'example': 'Help me plan a vacation to Europe'
+            },
+            {
+                'scenario': 'Decision Making',
+                'description': 'Test guidance for choices',
+                'example': 'Help me decide between two job offers'
+            }
         ]
     }
     
     # Find the best matching category
-    for category, category_samples in samples.items():
+    for category, category_scenarios in scenarios.items():
         if category in task_lower:
-            return category_samples
+            return category_scenarios
     
-    # If no specific match, return general samples based on common keywords
+    # If no specific match, return general scenarios based on common keywords
     if any(word in task_lower for word in ['joke', 'funny', 'humor', 'laugh']):
-        return samples['joke']
-    elif any(word in task_lower for word in ['story', 'tale', 'narrative', 'fiction']):
-        return samples['story']
-    elif any(word in task_lower for word in ['explain', 'describe', 'define', 'what is']):
-        return samples['explain']
-    elif any(word in task_lower for word in ['analyze', 'evaluate', 'assess', 'compare']):
-        return samples['analyze']
-    elif any(word in task_lower for word in ['write', 'create', 'draft', 'compose']):
-        return samples['write']
-    elif any(word in task_lower for word in ['help', 'assist', 'guide', 'support']):
-        return samples['help']
-    elif any(word in task_lower for word in ['translate', 'convert', 'rewrite', 'rephrase']):
-        return samples['translate']
-    elif any(word in task_lower for word in ['summarize', 'brief', 'overview', 'key points']):
-        return samples['summarize']
+        return scenarios['joke']
+    elif any(word in task_lower for word in ['email', 'mail', 'correspondence']):
+        return scenarios['email']
+    elif any(word in task_lower for word in ['explain', 'describe', 'define', 'what is', 'how to']):
+        return scenarios['explain']
+    elif any(word in task_lower for word in ['analyze', 'evaluate', 'assess', 'compare', 'review']):
+        return scenarios['analyze']
+    elif any(word in task_lower for word in ['write', 'create', 'draft', 'compose', 'story']):
+        return scenarios['write']
+    elif any(word in task_lower for word in ['help', 'assist', 'guide', 'support', 'advice']):
+        return scenarios['help']
     
-    # Default fallback samples
+    # Default fallback scenarios
     return [
-        "Test this prompt with a simple request",
-        "Try a specific example",
-        "Ask for detailed information",
-        "Request a creative response"
+        {
+            'scenario': 'Basic Functionality',
+            'description': 'Test the core functionality of your prompt',
+            'example': 'Test with a simple request related to your task'
+        },
+        {
+            'scenario': 'Edge Case',
+            'description': 'Test how the prompt handles unusual or challenging inputs',
+            'example': 'Try an unexpected or complex request'
+        },
+        {
+            'scenario': 'Quality Check',
+            'description': 'Test the quality and relevance of the output',
+            'example': 'Ask for detailed, specific information'
+        }
     ]
 
 @st.dialog("📜 View Lineage")
@@ -224,22 +285,12 @@ def test_prompt_dialog(prompt_id):
     )
     
     if is_newly_generated:
-        st.title(f"🎉 New Prompt Generated: {prompt_data.get('task', 'Untitled')}")
-        st.success("✨ Your prompt has been created! Let's test it out and get your feedback.")
-        st.info("💡 **Tip:** Try the prompt with different inputs to see how it performs. Use the feedback buttons to save good examples or correct bad ones.")
-        
-        # Add a prominent improve button for newly generated prompts
-        col1, col2 = st.columns(2)
-        with col1:
-            st.button("Close", on_click=close_test_dialog, use_container_width=True)
-        with col2:
-            if st.button("✨ Improve This Prompt", key=f"improve_from_test_{prompt_id}", use_container_width=True):
-                # Close test dialog and open improve dialog
-                close_test_dialog()
-                improve_prompt_dialog(prompt_id)
+        st.title(f"🎉 Testing New Prompt: {prompt_data.get('task', 'Untitled')}")
+        st.success("✨ Your prompt has been created! Let's test it with some relevant examples.")
     else:
         st.title(f"Testing: {prompt_data.get('task', 'Untitled')} (v{prompt_data.get('version', 1)})")
-        st.button("Close", on_click=close_test_dialog, use_container_width=True)
+    
+    st.button("Close", on_click=close_test_dialog, use_container_width=True)
 
     # Display the prompt diff if it exists in the session state
     if 'prompt_diff' in st.session_state and st.session_state.prompt_diff:
@@ -256,28 +307,21 @@ def test_prompt_dialog(prompt_id):
             st.markdown("**🧠 Generation Process:**")
             st.markdown(prompt_data['generation_process'])
     
-    # For newly generated prompts, offer a quick test with contextual sample inputs
+    # For newly generated prompts, show contextual testing guidance
     if is_newly_generated:
-        st.subheader("🚀 Quick Test")
+        st.subheader("🧪 Testing Your Prompt")
         
-        # Generate contextual sample inputs based on the prompt task
+        # Generate contextual test suggestions based on the prompt task
         task = prompt_data.get('task', '').lower()
-        sample_inputs = _generate_contextual_samples(task)
+        test_suggestions = _generate_test_suggestions(task)
         
-        col1, col2 = st.columns([3, 1])
-        with col1:
-            sample_input = st.selectbox(
-                "Choose a sample input to test your prompt:",
-                sample_inputs,
-                key=f"sample_input_{prompt_id}"
-            )
-        with col2:
-            if st.button("🧪 Test Sample", key=f"test_sample_{prompt_id}"):
-                # Add the sample input to chat history and trigger response
-                st.session_state.test_chat_history.append({"role": "user", "content": sample_input})
-                st.rerun()
+        st.markdown("**💡 Suggested Test Scenarios:**")
+        for i, suggestion in enumerate(test_suggestions, 1):
+            st.markdown(f"{i}. **{suggestion['scenario']}** - {suggestion['description']}")
+            st.markdown(f"   *Try:* `{suggestion['example']}`")
         
-        st.divider()
+        st.markdown("---")
+        st.info("**Tip:** Use the chat input below to test your prompt with these scenarios or your own examples.")
 
     # --- Correction Mode UI ---
     if st.session_state.get('correction_mode'):
