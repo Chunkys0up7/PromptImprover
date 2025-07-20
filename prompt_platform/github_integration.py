@@ -1,0 +1,286 @@
+"""
+GitHub integration module for committing prompts to repositories.
+
+This module provides functionality to:
+- Connect to GitHub repositories
+- Commit prompts with proper formatting
+- Handle authentication and repository management
+"""
+import os
+import json
+import logging
+from datetime import datetime
+from typing import Optional, Dict, Any, List
+import streamlit as st
+
+logger = logging.getLogger(__name__)
+
+class GitHubIntegration:
+    """Handles GitHub integration for prompt management."""
+    
+    def __init__(self):
+        """Initialize GitHub integration."""
+        self.github_token = os.getenv('GITHUB_TOKEN')
+        self.default_owner = os.getenv('GITHUB_OWNER')
+        self.default_repo = os.getenv('GITHUB_REPO')
+        
+    def is_configured(self) -> bool:
+        """Check if GitHub integration is properly configured."""
+        return bool(self.github_token and self.default_owner and self.default_repo)
+    
+    def get_repository_info(self) -> Dict[str, str]:
+        """Get current repository configuration."""
+        return {
+            'owner': self.default_owner,
+            'repo': self.default_repo,
+            'configured': self.is_configured()
+        }
+    
+    def format_prompt_for_github(self, prompt_data: Dict[str, Any]) -> str:
+        """Format prompt data for GitHub commit."""
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        content = f"""# {prompt_data.get('task', 'Untitled Prompt')}
+
+**Version:** {prompt_data.get('version', 1)}  
+**Created:** {prompt_data.get('created_at', timestamp)}  
+**Lineage ID:** {prompt_data.get('lineage_id', 'N/A')}
+
+## Prompt
+
+```
+{prompt_data.get('prompt', '')}
+```
+
+## Generation Process
+
+{prompt_data.get('generation_process', 'No generation process recorded.')}
+
+## Training Data
+
+"""
+        
+        # Add training data if available
+        if prompt_data.get('training_data'):
+            try:
+                training_data = json.loads(prompt_data['training_data'])
+                if training_data:
+                    content += "### Examples\n\n"
+                    for i, example in enumerate(training_data, 1):
+                        content += f"**Example {i}:**\n"
+                        content += f"- Input: `{example.get('input', 'N/A')}`\n"
+                        content += f"- Output: `{example.get('output', 'N/A')}`\n\n"
+                else:
+                    content += "No training examples available.\n"
+            except json.JSONDecodeError:
+                content += "Training data format error.\n"
+        else:
+            content += "No training data available.\n"
+        
+        return content
+    
+    def commit_prompt_to_github(self, prompt_data: Dict[str, Any], 
+                               owner: Optional[str] = None, 
+                               repo: Optional[str] = None,
+                               branch: str = "main") -> Dict[str, Any]:
+        """Commit a prompt to GitHub repository."""
+        if not self.is_configured():
+            return {
+                'success': False,
+                'error': 'GitHub integration not configured. Please set GITHUB_TOKEN, GITHUB_OWNER, and GITHUB_REPO environment variables.'
+            }
+        
+        try:
+            # Import PyGithub
+            from github import Github
+            
+            # Use provided values or defaults
+            owner = owner or self.default_owner
+            repo = repo or self.default_repo
+            
+            # Initialize GitHub client
+            g = Github(self.github_token)
+            
+            # Get repository
+            repository = g.get_repo(f"{owner}/{repo}")
+            
+            # Format the prompt content
+            content = self.format_prompt_for_github(prompt_data)
+            
+            # Create filename
+            task_name = prompt_data.get('task', 'untitled_prompt')
+            safe_task_name = "".join(c for c in task_name if c.isalnum() or c in (' ', '-', '_')).rstrip()
+            safe_task_name = safe_task_name.replace(' ', '_').lower()
+            filename = f"prompts/{safe_task_name}_v{prompt_data.get('version', 1)}.md"
+            
+            # Commit message
+            commit_message = f"Add prompt: {prompt_data.get('task', 'Untitled')} (v{prompt_data.get('version', 1)})"
+            
+            try:
+                # Try to create the file
+                result = repository.create_file(
+                    path=filename,
+                    message=commit_message,
+                    content=content,
+                    branch=branch
+                )
+                
+                logger.info(f"Successfully committed to GitHub: {filename}")
+                
+                return {
+                    'success': True,
+                    'message': f'Prompt committed to GitHub: {filename}',
+                    'filename': filename,
+                    'url': result['content'].html_url,
+                    'sha': result['content'].sha
+                }
+                
+            except Exception as e:
+                if "already exists" in str(e).lower():
+                    # File already exists, update it
+                    try:
+                        # Get the current file
+                        file = repository.get_contents(filename, ref=branch)
+                        
+                        # Update the file
+                        result = repository.update_file(
+                            path=filename,
+                            message=f"Update {commit_message}",
+                            content=content,
+                            sha=file.sha,
+                            branch=branch
+                        )
+                        
+                        logger.info(f"Successfully updated on GitHub: {filename}")
+                        
+                        return {
+                            'success': True,
+                            'message': f'Prompt updated on GitHub: {filename}',
+                            'filename': filename,
+                            'url': result['content'].html_url,
+                            'sha': result['content'].sha
+                        }
+                        
+                    except Exception as update_error:
+                        logger.error(f"Failed to update file on GitHub: {update_error}")
+                        return {
+                            'success': False,
+                            'error': f'Failed to update file on GitHub: {str(update_error)}'
+                        }
+                else:
+                    raise e
+                    
+        except Exception as e:
+            logger.error(f"Failed to commit to GitHub: {e}")
+            return {
+                'success': False,
+                'error': f'Failed to commit to GitHub: {str(e)}'
+            }
+    
+    def get_github_settings_ui(self) -> Dict[str, Any]:
+        """Render GitHub settings UI and return configuration."""
+        st.subheader("🔗 GitHub Integration")
+        
+        if not self.is_configured():
+            st.warning("GitHub integration not configured. Set environment variables or configure below.")
+        
+        # GitHub configuration
+        with st.expander("⚙️ GitHub Configuration", expanded=not self.is_configured()):
+            github_token = st.text_input(
+                "GitHub Personal Access Token",
+                value=self.github_token or "",
+                type="password",
+                help="Create a token at https://github.com/settings/tokens with repo permissions"
+            )
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                owner = st.text_input(
+                    "Repository Owner",
+                    value=self.default_owner or "",
+                    help="GitHub username or organization name"
+                )
+            
+            with col2:
+                repo_name = st.text_input(
+                    "Repository Name",
+                    value=self.default_repo or "",
+                    help="Name of the repository to commit to"
+                )
+            
+            branch = st.text_input(
+                "Branch",
+                value="main",
+                help="Branch to commit to (default: main)"
+            )
+            
+            if st.button("🔗 Test Connection", key="test_github"):
+                if github_token and owner and repo_name:
+                    st.success("✅ GitHub configuration looks good!")
+                    return {
+                        'token': github_token,
+                        'owner': owner,
+                        'repo': repo_name,
+                        'branch': branch,
+                        'configured': True
+                    }
+                else:
+                    st.error("❌ Please fill in all required fields.")
+                    return {'configured': False}
+        
+        return {
+            'token': github_token or self.github_token,
+            'owner': owner or self.default_owner,
+            'repo': repo_name or self.default_repo,
+            'branch': branch,
+            'configured': bool(github_token and owner and repo_name)
+        }
+
+def commit_prompt_with_github_option(prompt_data: Dict[str, Any]) -> bool:
+    """Show GitHub commit option and handle the commit process."""
+    github_integration = GitHubIntegration()
+    
+    st.markdown("---")
+    st.subheader("📤 Commit to GitHub")
+    
+    # Check if GitHub is configured
+    if not github_integration.is_configured():
+        st.info("💡 Want to save your prompts to GitHub? Configure GitHub integration below.")
+        github_config = github_integration.get_github_settings_ui()
+        
+        if github_config.get('configured'):
+            # Update environment variables for this session
+            os.environ['GITHUB_TOKEN'] = github_config['token']
+            os.environ['GITHUB_OWNER'] = github_config['owner']
+            os.environ['GITHUB_REPO'] = github_config['repo']
+            github_integration.github_token = github_config['token']
+            github_integration.default_owner = github_config['owner']
+            github_integration.default_repo = github_config['repo']
+    
+    # Show commit option
+    if github_integration.is_configured():
+        repo_info = github_integration.get_repository_info()
+        st.success(f"✅ Connected to: {repo_info['owner']}/{repo_info['repo']}")
+        
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            st.info("💾 Your prompt can be committed to GitHub for version control and sharing.")
+        
+        with col2:
+            if st.button("🚀 Commit to GitHub", key="commit_github", use_container_width=True):
+                with st.spinner("Committing to GitHub..."):
+                    result = github_integration.commit_prompt_to_github(prompt_data)
+                    
+                    if result['success']:
+                        st.success(f"✅ {result['message']}")
+                        if 'url' in result:
+                            st.markdown(f"🔗 [View on GitHub]({result['url']})")
+                        return True
+                    else:
+                        st.error(f"❌ {result['error']}")
+                        return False
+    else:
+        st.warning("⚠️ GitHub integration not configured. Configure it above to enable commits.")
+        return False
+    
+    return False 

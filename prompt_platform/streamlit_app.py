@@ -10,6 +10,7 @@ import asyncio
 import logging
 import uuid
 import pandas as pd
+import os
 
 from prompt_platform.config import request_id_var
 # Import classes instead of singleton instances
@@ -22,6 +23,7 @@ from prompt_platform.dashboard import render_dashboard
 from prompt_platform.ui_actions import display_improvement_results, generate_and_save_prompt
 from prompt_platform.sanitizers import sanitize_text
 from prompt_platform.utils import run_async
+from prompt_platform.github_integration import commit_prompt_with_github_option
 
 # --- Page & Logging Setup ---
 st.set_page_config(page_title="Prompt Platform", layout="wide", initial_sidebar_state="expanded")
@@ -185,7 +187,7 @@ def main():
         **💡 Pro Tip:** The more you test and provide feedback, the better DSPy can optimize your prompts using the accumulated training data!
         """)
     
-    tab1, tab2, tab3 = st.tabs(["🚀 Generate", "📋 Manage", "📊 Dashboard"])
+    tab1, tab2, tab3, tab4 = st.tabs(["🚀 Generate", "📋 Manage", "📊 Dashboard", "⚙️ Settings"])
 
     with tab1:
         st.subheader("Generate New Prompt")
@@ -358,6 +360,9 @@ def main():
                     st.session_state.review_chat_history = []
                     st.toast("🗑️ Prompt deleted", icon="🗑️")
                     st.rerun()
+            
+            # GitHub integration option
+            commit_prompt_with_github_option(prompt_data)
 
     with tab2:
         st.subheader("Manage Existing Prompts")
@@ -414,6 +419,116 @@ def main():
 
     with tab3:
         render_dashboard()
+
+    with tab4:
+        st.subheader("⚙️ Settings")
+        
+        # GitHub Integration Settings
+        from prompt_platform.github_integration import GitHubIntegration
+        github_integration = GitHubIntegration()
+        github_config = github_integration.get_github_settings_ui()
+        
+        st.markdown("---")
+        
+        # LLM Provider Settings
+        st.subheader("🤖 LLM Provider Configuration")
+        
+        current_provider = os.getenv('LLM_PROVIDER', 'perplexity')
+        
+        with st.expander("🔄 Switch LLM Provider", expanded=False):
+            st.info("💡 Change your LLM provider here. Make sure to set the required environment variables for your chosen provider.")
+            
+            provider = st.selectbox(
+                "Select LLM Provider",
+                options=['perplexity', 'custom_token', 'bedrock', 'openai', 'anthropic'],
+                index=['perplexity', 'custom_token', 'bedrock', 'openai', 'anthropic'].index(current_provider),
+                help="Choose your preferred LLM provider"
+            )
+            
+            if provider != current_provider:
+                st.warning(f"⚠️ To switch to {provider}, set the LLM_PROVIDER environment variable and restart the app.")
+                st.code(f"export LLM_PROVIDER={provider}")
+            
+            # Show provider-specific configuration
+            if provider == 'perplexity':
+                st.success("✅ Perplexity AI - Current default provider")
+                st.info("Set PERPLEXITY_API_KEY environment variable")
+                
+            elif provider == 'custom_token':
+                st.info("🔧 Custom Token-Based API")
+                st.markdown("""
+                **Required Environment Variables:**
+                - `CUSTOM_API_BASE_URL` - Your API endpoint
+                - `CUSTOM_AUTH_URL` - Authentication endpoint
+                - `CUSTOM_CLIENT_ID` - Client ID
+                - `CUSTOM_CLIENT_SECRET` - Client secret
+                - `CUSTOM_MODEL_NAME` - Model name
+                """)
+                
+            elif provider == 'bedrock':
+                st.info("☁️ AWS Bedrock")
+                st.markdown("""
+                **Required Environment Variables:**
+                - `AWS_ACCESS_KEY_ID` - AWS access key
+                - `AWS_SECRET_ACCESS_KEY` - AWS secret key
+                - `AWS_REGION` - AWS region (default: us-east-1)
+                - `BEDROCK_MODEL_ID` - Bedrock model ID
+                """)
+                
+            elif provider == 'openai':
+                st.info("🤖 OpenAI")
+                st.markdown("""
+                **Required Environment Variables:**
+                - `OPENAI_API_KEY` - OpenAI API key
+                - `OPENAI_MODEL` - Model name (default: gpt-4o)
+                """)
+                
+            elif provider == 'anthropic':
+                st.info("🧠 Anthropic Claude")
+                st.markdown("""
+                **Required Environment Variables:**
+                - `ANTHROPIC_API_KEY` - Anthropic API key
+                - `ANTHROPIC_MODEL` - Model name (default: claude-3-5-sonnet-20241022)
+                """)
+        
+        # Current Configuration Status
+        st.markdown("---")
+        st.subheader("📊 Current Configuration Status")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("**🔗 GitHub Integration:**")
+            if github_integration.is_configured():
+                repo_info = github_integration.get_repository_info()
+                st.success(f"✅ Connected to {repo_info['owner']}/{repo_info['repo']}")
+            else:
+                st.error("❌ Not configured")
+        
+        with col2:
+            st.markdown("**🤖 LLM Provider:**")
+            if st.session_state.api_client.is_configured():
+                st.success(f"✅ {current_provider.title()} configured")
+            else:
+                st.error(f"❌ {current_provider.title()} not configured")
+        
+        # Documentation Links
+        st.markdown("---")
+        st.subheader("📚 Documentation")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("**🔗 Quick Links:**")
+            st.markdown("- [LLM Provider Guide](docs/llm_provider_guide.md)")
+            st.markdown("- [Development Guide](docs/DEVELOPMENT.md)")
+            st.markdown("- [Database Migration](docs/database_migration_guide.md)")
+        
+        with col2:
+            st.markdown("**📖 GitHub Integration:**")
+            st.markdown("- [GitHub Token Setup](https://github.com/settings/tokens)")
+            st.markdown("- [Repository Permissions](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/managing-repository-settings/managing-teams-and-people-with-access-to-your-repository)")
+            st.markdown("- [Branch Protection](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/defining-the-mergeability-of-pull-requests/managing-a-branch-protection-rule)")
 
 if __name__ == "__main__":
     main() 
