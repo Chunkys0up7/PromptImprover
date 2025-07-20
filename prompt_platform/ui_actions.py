@@ -182,30 +182,6 @@ def display_improvement_results(context="default"):
     
     improvement = st.session_state.last_improvement
     
-    # Add custom CSS for better formatting
-    st.markdown("""
-    <style>
-    .methodology-section {
-        background-color: #f8f9fa;
-        border-radius: 8px;
-        padding: 16px;
-        margin: 8px 0;
-        border-left: 4px solid #007bff;
-    }
-    .methodology-section h4 {
-        color: #495057;
-        margin-bottom: 12px;
-    }
-    .methodology-section ul {
-        margin-bottom: 8px;
-    }
-    .methodology-section li {
-        margin-bottom: 4px;
-        line-height: 1.5;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-    
     with st.expander("🎯 **Latest Improvement Results**", expanded=True):
         col1, col2 = st.columns([2, 1])
         
@@ -224,13 +200,15 @@ def display_improvement_results(context="default"):
             st.metric("Lineage ID", improvement['improved_prompt']['lineage_id'][:8] + "...")
         
         st.markdown("**🔍 Changes Made:**")
-        st.markdown(improvement['diff_html'], unsafe_allow_html=True)
+        # Use a container to ensure proper HTML rendering
+        with st.container():
+            st.markdown(improvement['diff_html'], unsafe_allow_html=True)
         
         st.markdown("**🧠 Methodology Applied:**")
         # Use a container with better styling for the methodology
         with st.container():
             st.markdown(f"""
-            <div class="methodology-section">
+            <div style="background-color: #f8f9fa; border-radius: 8px; padding: 16px; margin: 8px 0; border-left: 4px solid #007bff;">
             {improvement['methodology']}
             </div>
             """, unsafe_allow_html=True)
