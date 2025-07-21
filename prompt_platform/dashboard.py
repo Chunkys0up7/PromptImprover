@@ -2,42 +2,83 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
 import time
+import logging
+
+logger = logging.getLogger(__name__)
 
 @st.cache_data(ttl=300)  # Cache for 5 minutes
 def fetch_performance_stats():
     """Fetches comprehensive performance statistics."""
-    return st.session_state.db.get_performance_stats()
+    try:
+        # Get database instance directly instead of relying on session state
+        from prompt_platform.database import PromptDB
+        db = PromptDB()
+        return db.get_performance_stats()
+    except Exception as e:
+        logger.error(f"Failed to fetch performance stats: {e}")
+        return {
+            'total_prompts': 0,
+            'total_examples': 0,
+            'total_lineages': 0,
+            'avg_examples_per_prompt': 0,
+            'recent_prompts': 0,
+            'recent_examples': 0
+        }
 
 @st.cache_data(ttl=300)
 def fetch_recent_prompts():
     """Fetches the most recent prompts."""
-    return st.session_state.db.get_recent_prompts(limit=5)
+    try:
+        from prompt_platform.database import PromptDB
+        db = PromptDB()
+        return db.get_recent_prompts(limit=5)
+    except Exception as e:
+        logger.error(f"Failed to fetch recent prompts: {e}")
+        return []
 
 @st.cache_data(ttl=300)
 def fetch_top_prompts():
     """Fetches prompts with the most versions."""
-    return st.session_state.db.get_top_prompts_by_versions(limit=5)
+    try:
+        from prompt_platform.database import PromptDB
+        db = PromptDB()
+        return db.get_top_prompts_by_versions(limit=5)
+    except Exception as e:
+        logger.error(f"Failed to fetch top prompts: {e}")
+        return []
 
 @st.cache_data(ttl=300)
 def fetch_prompt_trends():
     """Fetches prompt creation trend data and prepares it for charting."""
-    data = st.session_state.db.count_prompts_by_date()
-    if not data:
+    try:
+        from prompt_platform.database import PromptDB
+        db = PromptDB()
+        data = db.count_prompts_by_date()
+        if not data:
+            return pd.DataFrame(columns=['date', 'count']).set_index('date')
+        df = pd.DataFrame(data)
+        df['date'] = pd.to_datetime(df['date'])
+        return df.set_index('date')
+    except Exception as e:
+        logger.error(f"Failed to fetch prompt trends: {e}")
         return pd.DataFrame(columns=['date', 'count']).set_index('date')
-    df = pd.DataFrame(data)
-    df['date'] = pd.to_datetime(df['date'])
-    return df.set_index('date')
 
 @st.cache_data(ttl=300)
 def fetch_example_growth():
     """Fetches training example growth data and prepares it for charting."""
-    data = st.session_state.db.count_examples_by_date()
-    if not data:
+    try:
+        from prompt_platform.database import PromptDB
+        db = PromptDB()
+        data = db.count_examples_by_date()
+        if not data:
+            return pd.DataFrame(columns=['date', 'examples']).set_index('date')
+        df = pd.DataFrame(data)
+        df['date'] = pd.to_datetime(df['date'])
+        df['examples'] = df['examples'].cumsum()
+        return df.set_index('date')
+    except Exception as e:
+        logger.error(f"Failed to fetch example growth: {e}")
         return pd.DataFrame(columns=['date', 'examples']).set_index('date')
-    df = pd.DataFrame(data)
-    df['date'] = pd.to_datetime(df['date'])
-    df['examples'] = df['examples'].cumsum()
-    return df.set_index('date')
 
 def format_time_ago(timestamp):
     """Formats a timestamp as a human-readable time ago string."""
