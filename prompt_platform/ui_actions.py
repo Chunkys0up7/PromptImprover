@@ -49,11 +49,17 @@ def handle_save_example(prompt_id: int, input_text: str, output_text: str, criti
 
         st.session_state.db.add_example(prompt_id, input_text, output_text, critique)
         
-        toast_message = "✅ Example saved!"
-        if critique:
-            toast_message = "✅ Corrected example saved!"
-            
-        st.toast(toast_message)
+        # Check if we have enough examples to trigger improvement
+        examples = st.session_state.db.get_examples(prompt_id)
+        if len(examples) >= 3:  # Trigger improvement after 3 examples
+            st.toast("🎯 Enough examples collected! Triggering DSPy optimization...", icon="🚀")
+            # Trigger improvement asynchronously
+            run_async(improve_and_save_prompt(prompt_id, f"Optimize based on {len(examples)} training examples"))
+        else:
+            toast_message = "✅ Example saved!"
+            if critique:
+                toast_message = "✅ Corrected example saved!"
+            st.toast(f"{toast_message} ({len(examples)}/3 examples for optimization)")
         
         # Clear relevant caches
         st.cache_data.clear()

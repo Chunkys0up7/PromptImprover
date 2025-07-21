@@ -406,7 +406,7 @@ def test_prompt_dialog(prompt_id):
                     st.session_state.chat_history.append({"role": "assistant", "content": response})
                     
                     # Feedback buttons
-                    col1, col2, col3 = st.columns(3)
+                    col1, col2, col3, col4 = st.columns(4)
                     with col1:
                         if st.button("👍 Good", key=f"good_{len(st.session_state.chat_history)}"):
                             # Save as good example
@@ -428,6 +428,15 @@ def test_prompt_dialog(prompt_id):
                             st.rerun()
                     
                     with col3:
+                        if st.button("🚀 Improve Now", key=f"improve_{len(st.session_state.chat_history)}"):
+                            # Trigger improvement immediately
+                            run_async(improve_and_save_prompt(
+                                display_prompt_data['id'], 
+                                "Optimize based on user feedback and examples"
+                            ))
+                            st.success("Triggering improvement...")
+                    
+                    with col4:
                         if st.button("🔄 Clear Chat", key=f"clear_{len(st.session_state.chat_history)}"):
                             st.session_state.chat_history = []
                             st.rerun()
