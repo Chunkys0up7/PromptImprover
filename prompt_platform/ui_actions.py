@@ -113,6 +113,10 @@ async def improve_and_save_prompt(prompt_id, task_desc):
         )
         # save_prompt now returns the saved object
         saved_prompt = st.session_state.db.save_prompt(improved_prompt)
+        
+        # Check if save was successful
+        if not saved_prompt:
+            raise Exception("Failed to save improved prompt")
 
         # Generate and store the diff
         diff_html = get_text_diff(original_prompt['prompt'], saved_prompt['prompt'])
