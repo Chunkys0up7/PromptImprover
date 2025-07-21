@@ -292,7 +292,7 @@ def settings_fragment():
             """)
             
             # GitHub Token Input
-            github_token_input = st.text_input(
+            token_input = st.text_input(
                 "GitHub Personal Access Token",
                 type="password",
                 help="Your GitHub personal access token with 'repo' permissions",
@@ -300,18 +300,18 @@ def settings_fragment():
             )
             
             # Repository URL Input
-            repo_url_input = st.text_input(
+            url_input = st.text_input(
                 "GitHub Repository URL",
                 help="Your GitHub repository URL (e.g., https://github.com/username/repo)",
                 placeholder="https://github.com/username/repository"
             )
             
             if st.button("🔗 Enable GitHub Integration", type="primary"):
-                if github_token_input and repo_url_input:
+                if token_input and url_input:
                     # Create .env file with GitHub configuration
                     env_content = f"""# GitHub Integration
-GITHUB_TOKEN={github_token_input}
-GITHUB_REPO_URL={repo_url_input}
+GITHUB_TOKEN={token_input}
+GITHUB_REPO_URL={url_input}
 
 # Existing API Configuration
 API_TOKEN={os.getenv('API_TOKEN', '')}
