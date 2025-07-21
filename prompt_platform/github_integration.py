@@ -716,13 +716,20 @@ class GitHubIntegration:
             # Add file to git
             self.repo.index.add([filename])
             
-            # Check if there are changes to commit
-            if not self.repo.index.diff('HEAD'):
-                return {
-                    "success": True,
-                    "message": "Prompt already committed to GitHub",
-                    "note": "No changes detected"
-                }
+            # Check if this is the first commit (no HEAD reference)
+            try:
+                # Try to get HEAD reference
+                head_commit = self.repo.head.commit
+                # If we get here, HEAD exists, so check for changes
+                if not self.repo.index.diff('HEAD'):
+                    return {
+                        "success": True,
+                        "message": "Prompt already committed to GitHub",
+                        "note": "No changes detected"
+                    }
+            except ValueError:
+                # No HEAD reference exists - this is the first commit
+                logger.info("Creating initial commit for repository")
             
             # Commit the changes
             commit_message = f"Add/Update prompt: {prompt_data.get('task', 'Unknown task')[:50]}"
