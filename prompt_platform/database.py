@@ -271,7 +271,10 @@ class PromptDB:
                 total_lineages = session.query(Prompt.lineage_id).distinct().count()
                 
                 # Get average examples per prompt
-                avg_examples = session.query(func.avg(func.count(Example.id))).select_from(Example).group_by(Example.prompt_id).scalar() or 0
+                example_counts = session.query(
+                    func.count(Example.id).label('count')
+                ).group_by(Example.prompt_id).subquery()
+                avg_examples = session.query(func.avg(example_counts.c.count)).scalar() or 0
                 
                 # Get recent activity (last 7 days)
                 week_ago = datetime.utcnow() - timedelta(days=7)
