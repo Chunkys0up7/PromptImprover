@@ -282,33 +282,29 @@ def test_prompt_dialog(prompt_id):
     )
     
     if is_newly_generated:
-        st.title(f"🎉 Testing New Prompt: {prompt_data.get('task', 'Untitled')}")
-        st.success("✨ Your prompt has been created! Let's test it with some relevant examples.")
+        st.success("✨ Your prompt has been created! Let's test it.")
     elif is_improved_prompt:
         improved_prompt_data = st.session_state.newly_generated_prompt['prompt_data']
-        st.title(f"🚀 Testing Improved Prompt: {improved_prompt_data.get('task', 'Untitled')}")
-        st.success(f"✨ Your prompt has been improved! Testing version {improved_prompt_data.get('version', 1)}")
+        st.success(f"✨ Your prompt has been improved! (v{improved_prompt_data.get('version', 1)})")
         
         # Show improvement request
         improvement_request = st.session_state.newly_generated_prompt.get('improvement_request', '')
         if improvement_request:
-            st.info(f"**Improvement Request:** {improvement_request}")
+            st.info(f"**Improvement:** {improvement_request}")
     else:
-        st.title(f"Testing: {prompt_data.get('task', 'Untitled')} (v{prompt_data.get('version', 1)})")
+        st.info(f"Testing: {prompt_data.get('task', 'Untitled')} (v{prompt_data.get('version', 1)})")
     
-    st.button("Close", on_click=close_test_dialog, use_container_width=True)
-
+    # Use improved prompt data if this is an improved prompt
+    display_prompt_data = improved_prompt_data if is_improved_prompt else prompt_data
+    
     # Display the prompt diff if it exists in the session state
     if 'prompt_diff' in st.session_state and st.session_state.prompt_diff:
-        with st.expander("Show Prompt Improvements", expanded=True):
+        with st.expander("📊 Show Prompt Improvements", expanded=False):
             st.markdown(st.session_state.prompt_diff, unsafe_allow_html=True)
         # Clear the diff from session state after displaying it
         del st.session_state.prompt_diff
 
-    # Use improved prompt data if this is an improved prompt
-    display_prompt_data = improved_prompt_data if is_improved_prompt else prompt_data
-    
-    with st.expander("Show Current Prompt"):
+    with st.expander("📝 Show Current Prompt", expanded=False):
         st.code(display_prompt_data['prompt'], language='text')
         
         # Show generation process if available
@@ -316,7 +312,7 @@ def test_prompt_dialog(prompt_id):
             st.markdown("**🧠 Generation Process:**")
             st.markdown(display_prompt_data['generation_process'])
     
-    # For newly generated prompts, show contextual testing guidance
+    # For newly generated prompts, show compact testing guidance
     if is_newly_generated:
         st.subheader("🧪 Testing Your Prompt")
         
@@ -324,115 +320,125 @@ def test_prompt_dialog(prompt_id):
         task = prompt_data.get('task', '').lower()
         test_suggestions = _generate_test_suggestions(task)
         
-        st.markdown("**💡 Suggested Test Scenarios:**")
-        for i, suggestion in enumerate(test_suggestions, 1):
-            st.markdown(f"{i}. **{suggestion['scenario']}** - {suggestion['description']}")
-            st.markdown(f"   *Try:* `{suggestion['example']}`")
+        with st.expander("💡 Suggested Test Scenarios", expanded=False):
+            for i, suggestion in enumerate(test_suggestions[:3], 1):  # Limit to 3 suggestions
+                st.markdown(f"**{i}. {suggestion['scenario']}**")
+                st.markdown(f"*Try:* `{suggestion['example']}`")
+                st.markdown(f"*Why:* {suggestion['description']}")
+                st.markdown("---")
         
-        st.markdown("---")
-        st.info("**Tip:** Use the chat input below to test your prompt with these scenarios or your own examples.")
+        st.info("💡 **Tip:** Use the chat input below to test your prompt with these scenarios or your own examples.")
 
     # --- Correction Mode UI ---
     if st.session_state.get('correction_mode'):
         st.subheader("✍️ Correct AI Output")
         correction_data = st.session_state.correction_data
         
-        st.write("**Original Input:**")
-        st.text(correction_data["user_input"])
-
-        st.write("**Incorrect AI Output:**")
-        st.text(correction_data["assistant_response"])
+        col1, col2 = st.columns(2)
+        with col1:
+            st.write("**Original Input:**")
+            st.text(correction_data["user_input"])
+        with col2:
+            st.write("**Incorrect AI Output:**")
+            st.text(correction_data["assistant_response"])
         
-        desired_output = st.text_area("Provide the desired, correct output (optional if critique is provided):", height=150)
-        critique = st.text_area("Why was this a bad response? (Optional if desired output is provided)", height=100)
+        desired_output = st.text_area("Provide the desired, correct output:", height=100, placeholder="Enter the correct response...")
+        critique = st.text_area("Why was this a bad response?", height=80, placeholder="Explain what went wrong...")
 
-        if st.button("Save Correction & Improve", use_container_width=True):
-            if not desired_output and not critique:
-                st.warning("Please provide either a desired output, a critique, or both.")
-            else:
-                # Use the correct prompt ID for correction (improved version if available)
-                correction_prompt_id = display_prompt_data['id'] if is_improved_prompt else prompt_id
-                
-                with st.spinner("Saving correction and improving prompt..."):
-                    run_async(handle_correction_and_improve(
-                        correction_prompt_id, 
-                        correction_data["user_input"], 
-                        desired_output,
-                        critique
-                    ))
-                # The session state is now updated with the new prompt ID.
-                # Rerunning will automatically reopen the dialog with the new prompt.
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("Save Correction & Improve", use_container_width=True):
+                if not desired_output and not critique:
+                    st.warning("Please provide either a desired output, a critique, or both.")
+                else:
+                    # Use the correct prompt ID for correction (improved version if available)
+                    correction_prompt_id = display_prompt_data['id'] if is_improved_prompt else prompt_id
+                    
+                    with st.spinner("Saving correction and improving prompt..."):
+                        run_async(handle_correction_and_improve(
+                            correction_prompt_id, 
+                            correction_data["user_input"], 
+                            desired_output, 
+                            critique
+                        ))
+        with col2:
+            if st.button("Cancel", use_container_width=True):
+                st.session_state.correction_mode = False
+                st.session_state.correction_data = None
                 st.rerun()
 
-    # --- Standard Chat UI ---
-    else:
-        chat_container = st.container(height=400)
-        with chat_container:
-            for message in st.session_state.test_chat_history:
-                with st.chat_message(message["role"]):
-                    st.markdown(message["content"])
-
-        # Step 2: If the last message is from the user, generate a response
-        if st.session_state.test_chat_history and st.session_state.test_chat_history[-1]["role"] == "user":
-            with st.spinner("🧠 Thinking..."):
+    # --- Chat Interface ---
+    st.subheader("💬 Test Your Prompt")
+    
+    # Initialize chat history if not exists
+    if 'chat_history' not in st.session_state:
+        st.session_state.chat_history = []
+    
+    # Display chat history
+    for message in st.session_state.chat_history:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
+    
+    # Chat input
+    if prompt := st.chat_input("Test your prompt here..."):
+        # Add user message to chat history
+        st.session_state.chat_history.append({"role": "user", "content": prompt})
+        
+        # Display user message
+        with st.chat_message("user"):
+            st.markdown(prompt)
+        
+        # Get AI response
+        with st.chat_message("assistant"):
+            with st.spinner("Generating response..."):
                 try:
-                    last_user_input = st.session_state.test_chat_history[-1]["content"]
+                    # Format the prompt with user input
+                    formatted_prompt = display_prompt_data['prompt'].replace('{input}', prompt)
                     
-                    # Fix placeholder on the fly for backwards compatibility.
-                    # We only replace the first instance to avoid corrupting examples.
-                    prompt_template = display_prompt_data['prompt'].replace('{{input}}', '{input}', 1)
-                    final_prompt = prompt_template.format(input=last_user_input)
-
-                    messages = [
-                        {"role": "system", "content": "You are a helpful AI assistant. Execute the user's instruction."},
-                        {"role": "user", "content": final_prompt}
-                    ]
-                    response_generator = st.session_state.api_client.stream_chat_completion(messages)
-                    assistant_response = st.write_stream(response_generator)
-
-                    st.session_state.test_chat_history.append({"role": "assistant", "content": assistant_response})
-                    st.rerun()
-
-                except (APIResponseError, APITimeoutError) as e:
-                    st.error(f"API Error: {e}")
+                    # Get response from API
+                    response = run_async(st.session_state.api_client.get_chat_completion([
+                        {"role": "user", "content": formatted_prompt}
+                    ]))
+                    
+                    st.markdown(response)
+                    
+                    # Add assistant message to chat history
+                    st.session_state.chat_history.append({"role": "assistant", "content": response})
+                    
+                    # Feedback buttons
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        if st.button("👍 Good", key=f"good_{len(st.session_state.chat_history)}"):
+                            # Save as good example
+                            run_async(handle_save_example(
+                                display_prompt_data['id'], 
+                                prompt, 
+                                response
+                            ))
+                            st.success("Saved as good example!")
+                    
+                    with col2:
+                        if st.button("👎 Bad", key=f"bad_{len(st.session_state.chat_history)}"):
+                            # Enter correction mode
+                            st.session_state.correction_mode = True
+                            st.session_state.correction_data = {
+                                "user_input": prompt,
+                                "assistant_response": response
+                            }
+                            st.rerun()
+                    
+                    with col3:
+                        if st.button("🔄 Clear Chat", key=f"clear_{len(st.session_state.chat_history)}"):
+                            st.session_state.chat_history = []
+                            st.rerun()
+                            
                 except Exception as e:
-                    logger.error(f"An unexpected error occurred: {e}", exc_info=True)
-                    st.error(f"An unexpected error occurred: {e}")
-
-        # Step 1: Get user input
-        if user_input := st.chat_input("Enter test input..."):
-            sanitized_input = sanitize_text(user_input)
-            st.session_state.test_chat_history.append({"role": "user", "content": sanitized_input})
-            st.rerun()
-
-        # Display feedback buttons only after an assistant has responded
-        if st.session_state.test_chat_history and st.session_state.test_chat_history[-1]["role"] == "assistant":
-            last_user_input = st.session_state.test_chat_history[-2]["content"]
-            assistant_response = st.session_state.test_chat_history[-1]["content"]
-            
-            feedback_key_base = f"feedback_{len(st.session_state.test_chat_history)}"
-            col1, col2 = st.columns(2)
-            
-            # Use the correct prompt ID for feedback (improved version if available)
-            feedback_prompt_id = display_prompt_data['id'] if is_improved_prompt else prompt_id
-            
-            with col1:
-                st.button(
-                    "👍 Good Example", 
-                    key=f"{feedback_key_base}_good", 
-                    use_container_width=True,
-                    on_click=handle_save_example,
-                    args=(feedback_prompt_id, last_user_input, assistant_response)
-                )
-            
-            with col2:
-                st.button(
-                    "👎 Bad Example", 
-                    key=f"{feedback_key_base}_bad", 
-                    use_container_width=True,
-                    on_click=set_correction_mode,
-                    args=(last_user_input, assistant_response)
-                )
+                    st.error(f"Error generating response: {e}")
+    
+    # Close button at the bottom
+    st.markdown("---")
+    if st.button("Close Dialog", use_container_width=True):
+        close_test_dialog()
 
 def main_manager_view(prompts):
     """Renders the main view of the prompt manager."""

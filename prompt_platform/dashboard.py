@@ -210,15 +210,23 @@ def render_top_prompts():
                 col1, col2, col3 = st.columns([3, 1, 1])
                 
                 with col1:
-                    st.markdown(f"**{prompt['task'][:60]}{'...' if len(prompt['task']) > 60 else ''}**")
-                    st.caption(f"Latest: v{prompt['latest_version']} • {format_time_ago(prompt['created_at'])}")
+                    task_text = prompt.get('task', 'Unknown Task')[:60]
+                    if len(prompt.get('task', '')) > 60:
+                        task_text += '...'
+                    st.markdown(f"**{task_text}**")
+                    
+                    # Safe access to fields with fallbacks
+                    latest_version = prompt.get('latest_version', prompt.get('version', 1))
+                    created_at = prompt.get('created_at', 0)
+                    st.caption(f"Latest: v{latest_version} • {format_time_ago(created_at)}")
                 
                 with col2:
-                    st.markdown(f"**{prompt['version_count']}**")
+                    version_count = prompt.get('version_count', 1)
+                    st.markdown(f"**{version_count}**")
                     st.caption("versions")
                 
                 with col3:
-                    improvement_emoji = "🚀" if prompt['version_count'] >= 5 else "📈" if prompt['version_count'] >= 3 else "📊"
+                    improvement_emoji = "🚀" if version_count >= 5 else "📈" if version_count >= 3 else "📊"
                     st.markdown(f"{improvement_emoji}")
                     st.caption("status")
                 
