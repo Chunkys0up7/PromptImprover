@@ -248,6 +248,84 @@ def settings_fragment():
     github_integration = GitHubIntegration()
     github_config = github_integration.get_github_settings_ui()
     
+    # GitHub Configuration Section
+    st.subheader("🔗 GitHub Integration")
+    
+    if not github_integration.is_enabled():
+        st.info("🔗 GitHub integration is currently disabled. Configure it below to enable.")
+        
+        with st.expander("🔧 Configure GitHub Integration", expanded=True):
+            st.markdown("""
+            **To enable GitHub integration, you need:**
+            1. A GitHub Personal Access Token
+            2. A GitHub repository URL
+            
+            **Steps:**
+            1. Create a token at: https://github.com/settings/tokens
+            2. Give it 'repo' permissions
+            3. Enter the token and repository URL below
+            """)
+            
+            # GitHub Token Input
+            github_token = st.text_input(
+                "GitHub Personal Access Token",
+                type="password",
+                help="Your GitHub personal access token with 'repo' permissions",
+                placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+            )
+            
+            # Repository URL Input
+            repo_url = st.text_input(
+                "GitHub Repository URL",
+                help="Your GitHub repository URL (e.g., https://github.com/username/repo)",
+                placeholder="https://github.com/username/repository"
+            )
+            
+            if st.button("🔗 Enable GitHub Integration", type="primary"):
+                if github_token and repo_url:
+                    # Create .env file with GitHub configuration
+                    env_content = f"""# GitHub Integration
+GITHUB_TOKEN={github_token}
+GITHUB_REPO_URL={repo_url}
+
+# Existing API Configuration
+API_TOKEN={os.getenv('API_TOKEN', '')}
+API_BASE_URL={os.getenv('API_BASE_URL', 'https://api.perplexity.ai')}
+DEFAULT_MODEL={os.getenv('DEFAULT_MODEL', 'sonar-pro')}
+"""
+                    
+                    try:
+                        with open('.env', 'w') as f:
+                            f.write(env_content)
+                        
+                        st.success("✅ GitHub integration configured! Please restart the app for changes to take effect.")
+                        st.info("🔄 Restart the app to enable GitHub integration.")
+                        
+                    except Exception as e:
+                        st.error(f"❌ Failed to save configuration: {e}")
+                else:
+                    st.warning("⚠️ Please provide both GitHub token and repository URL.")
+    else:
+        if github_integration.is_configured():
+            repo_info = github_integration.get_repository_info()
+            st.success(f"✅ GitHub integration enabled for {repo_info['owner']}/{repo_info['repo']}")
+            
+            with st.expander("🔧 GitHub Settings", expanded=False):
+                st.info(f"**Repository:** {repo_info['url']}")
+                st.info("**Status:** Configured and ready")
+                
+                if st.button("🔄 Test GitHub Connection"):
+                    try:
+                        # Test the connection
+                        from github import Github
+                        g = Github(os.getenv('GITHUB_TOKEN'))
+                        user = g.get_user()
+                        st.success(f"✅ Connected as {user.login}")
+                    except Exception as e:
+                        st.error(f"❌ Connection failed: {e}")
+        else:
+            st.warning("⚠️ GitHub integration enabled but not fully configured.")
+    
     st.markdown("---")
     
     # LLM Provider Settings

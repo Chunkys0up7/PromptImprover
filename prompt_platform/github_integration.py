@@ -60,7 +60,7 @@ class GitHubIntegration:
                  auth_token: str = None, branch: str = "main"):
         """Initialize GitHub integration"""
         self.repo_path = repo_path or os.path.join(os.getcwd(), "prompt_repo")
-        self.remote_url = remote_url
+        self.remote_url = remote_url or os.getenv("GITHUB_REPO_URL")
         self.auth_token = auth_token or os.getenv("GITHUB_TOKEN")
         self.branch = branch
         self.error_handler = ErrorHandler()
