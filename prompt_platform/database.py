@@ -356,23 +356,98 @@ class PromptDB:
         """Get top prompts by version count"""
         try:
             with self.session_scope() as session:
-                # Subquery to count versions per lineage
-                version_counts = session.query(
+                # Get prompts with the most versions in their lineage
+                subquery = session.query(
                     Prompt.lineage_id,
                     func.count(Prompt.id).label('version_count')
                 ).group_by(Prompt.lineage_id).subquery()
                 
-                # Get prompts with highest version counts
-                top_prompts = session.query(Prompt).join(
-                    version_counts, Prompt.lineage_id == version_counts.c.lineage_id
+                top_lineages = session.query(
+                    Prompt.lineage_id,
+                    Prompt.task,
+                    Prompt.created_at,
+                    subquery.c.version_count
+                ).join(
+                    subquery, Prompt.lineage_id == subquery.c.lineage_id
                 ).order_by(
-                    version_counts.c.version_count.desc()
+                    subquery.c.version_count.desc()
                 ).limit(limit).all()
                 
-                return [prompt.to_dict() for prompt in top_prompts]
-                
+                return [
+                    {
+                        'lineage_id': lineage.lineage_id,
+                        'task': lineage.task,
+                        'created_at': lineage.created_at,
+                        'version_count': lineage.version_count
+                    }
+                    for lineage in top_lineages
+                ]
         except Exception as e:
             logger.error(f"Failed to get top prompts: {e}")
+            return []
+    
+    def get_top_prompts_by_versions(self, limit: int = 5) -> List[Dict[str, Any]]:
+        """Get top prompts by version count (alias for get_top_prompts)"""
+        return self.get_top_prompts(limit)
+    
+    def count_prompts_by_date(self, days: int = 30) -> List[Dict[str, Any]]:
+        """Count prompts created by date for trend analysis"""
+        try:
+            with self.session_scope() as session:
+                # Get prompts created in the last N days
+                start_date = datetime.utcnow() - timedelta(days=days)
+                
+                # Query prompts by date
+                results = session.query(
+                    func.date(func.datetime(Prompt.created_at, 'unixepoch')).label('date'),
+                    func.count(Prompt.id).label('count')
+                ).filter(
+                    Prompt.created_at >= start_date.timestamp()
+                ).group_by(
+                    func.date(func.datetime(Prompt.created_at, 'unixepoch'))
+                ).order_by(
+                    func.date(func.datetime(Prompt.created_at, 'unixepoch'))
+                ).all()
+                
+                return [
+                    {
+                        'date': result.date,
+                        'count': result.count
+                    }
+                    for result in results
+                ]
+        except Exception as e:
+            logger.error(f"Failed to count prompts by date: {e}")
+            return []
+    
+    def count_examples_by_date(self, days: int = 30) -> List[Dict[str, Any]]:
+        """Count examples created by date for trend analysis"""
+        try:
+            with self.session_scope() as session:
+                # Get examples created in the last N days
+                start_date = datetime.utcnow() - timedelta(days=days)
+                
+                # Query examples by date
+                results = session.query(
+                    func.date(Example.created_at).label('date'),
+                    func.count(Example.id).label('examples')
+                ).filter(
+                    Example.created_at >= start_date
+                ).group_by(
+                    func.date(Example.created_at)
+                ).order_by(
+                    func.date(Example.created_at)
+                ).all()
+                
+                return [
+                    {
+                        'date': result.date,
+                        'examples': result.examples
+                    }
+                    for result in results
+                ]
+        except Exception as e:
+            logger.error(f"Failed to count examples by date: {e}")
             return []
     
     def get_prompt_trends(self, days: int = 30) -> List[Dict[str, Any]]:

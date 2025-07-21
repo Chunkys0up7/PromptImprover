@@ -5,7 +5,7 @@ import asyncio
 import dspy
 import uuid
 from functools import lru_cache
-from typing import Any, Callable
+from typing import Any, Callable, Union
 import time
 
 from .config import DspyConfig, get_dspy_lm
@@ -242,7 +242,7 @@ Provide your response in this format:
             logger.error(f"Failed to improve prompt {prompt_id}: {e}", exc_info=True)
             raise
 
-    async def _improve_prompt_basic(self, prompt_id: int, task_description: dict, api_client: 'APIClient', db: 'PromptDB') -> dict:
+    async def _improve_prompt_basic(self, prompt_id: int, task_description: Union[str, dict], api_client: 'APIClient', db: 'PromptDB') -> dict:
         """Original basic improvement method as fallback."""
         original_prompt_data = db.get_prompt(prompt_id)
 

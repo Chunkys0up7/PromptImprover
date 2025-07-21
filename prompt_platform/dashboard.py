@@ -6,7 +6,7 @@ import time
 @st.cache_data(ttl=300)  # Cache for 5 minutes
 def fetch_performance_stats():
     """Fetches comprehensive performance statistics."""
-    return st.session_state.db.get_prompt_performance_stats()
+    return st.session_state.db.get_performance_stats()
 
 @st.cache_data(ttl=300)
 def fetch_recent_prompts():
