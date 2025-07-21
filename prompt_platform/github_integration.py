@@ -682,4 +682,106 @@ class GitHubIntegration:
             return {"owner": "unknown", "repo": "unknown", "url": self.remote_url or ""}
         except Exception as e:
             logger.error(f"Failed to get repository info: {e}")
-            return {"owner": "error", "repo": "error", "url": ""} 
+            return {"owner": "error", "repo": "error", "url": ""}
+    
+    def commit_prompt_to_github(self, prompt_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Commit a single prompt to GitHub"""
+        try:
+            if not self.is_enabled():
+                return {
+                    "success": False,
+                    "error": "GitHub integration is not enabled"
+                }
+            
+            if not self.is_configured():
+                return {
+                    "success": False,
+                    "error": "GitHub integration is not properly configured"
+                }
+            
+            # Create prompt file content
+            prompt_content = self._format_prompt_for_github(prompt_data)
+            
+            # Create filename based on prompt ID
+            filename = f"prompts/{prompt_data.get('id', 'unknown')}.md"
+            file_path = os.path.join(self.repo_path, filename)
+            
+            # Ensure prompts directory exists
+            os.makedirs(os.path.dirname(file_path), exist_ok=True)
+            
+            # Write prompt to file
+            with open(file_path, 'w', encoding='utf-8') as f:
+                f.write(prompt_content)
+            
+            # Add file to git
+            self.repo.index.add([filename])
+            
+            # Check if there are changes to commit
+            if not self.repo.index.diff('HEAD'):
+                return {
+                    "success": True,
+                    "message": "Prompt already committed to GitHub",
+                    "note": "No changes detected"
+                }
+            
+            # Commit the changes
+            commit_message = f"Add/Update prompt: {prompt_data.get('task', 'Unknown task')[:50]}"
+            self.repo.index.commit(commit_message)
+            
+            # Push to remote
+            try:
+                origin = self.repo.remotes.origin
+                origin.push(self.branch)
+                
+                # Get the commit URL
+                repo_info = self.get_repository_info()
+                commit_hash = self.repo.head.commit.hexsha
+                commit_url = f"https://github.com/{repo_info['owner']}/{repo_info['repo']}/commit/{commit_hash}"
+                
+                return {
+                    "success": True,
+                    "message": "Prompt successfully committed to GitHub",
+                    "url": commit_url
+                }
+                
+            except GitCommandError as e:
+                logger.error(f"Failed to push to GitHub: {e}")
+                return {
+                    "success": False,
+                    "error": f"Failed to push to GitHub: {e}"
+                }
+                
+        except Exception as e:
+            logger.error(f"Failed to commit prompt to GitHub: {e}")
+            return {
+                "success": False,
+                "error": f"Failed to commit prompt to GitHub: {e}"
+            }
+    
+    def _format_prompt_for_github(self, prompt_data: Dict[str, Any]) -> str:
+        """Format prompt data for GitHub storage"""
+        content = f"""# Prompt: {prompt_data.get('task', 'Unknown Task')}
+
+## Metadata
+- **ID**: {prompt_data.get('id', 'Unknown')}
+- **Lineage ID**: {prompt_data.get('lineage_id', 'Unknown')}
+- **Version**: {prompt_data.get('version', 1)}
+- **Created**: {datetime.fromtimestamp(prompt_data.get('created_at', 0)).isoformat() if prompt_data.get('created_at') else 'Unknown'}
+- **Model**: {prompt_data.get('model', 'Unknown')}
+
+## Task
+{prompt_data.get('task', 'No task description')}
+
+## Prompt
+{prompt_data.get('prompt', 'No prompt content')}
+
+## Generation Process
+{prompt_data.get('generation_process', 'No generation process recorded')}
+
+## Improvement Request
+{prompt_data.get('improvement_request', 'No improvement request')}
+
+## Training Data
+{prompt_data.get('training_data', 'No training data')}
+"""
+        return content 
