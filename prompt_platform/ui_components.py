@@ -232,6 +232,7 @@ def correction_dialog(prompt_id, user_input, actual_output):
     if st.button("Save Corrected Example"):
         if desired_output:
             handle_save_example(prompt_id, user_input, desired_output)
+            st.toast("✅ Correction saved!", icon="✍️")
             st.rerun() # Closes dialog and refreshes the chat
         else:
             st.warning("Please provide the desired output.")
@@ -455,20 +456,38 @@ def main_manager_view(prompts):
         st.info("No prompts found. Use the '🚀 Generate' tab to create your first prompt.")
         return
     
+    # Add view toggle
+    col1, col2 = st.columns([1, 3])
+    with col1:
+        show_all_versions = st.checkbox("Show All Versions", value=False, help="Show all prompt versions instead of just the latest")
+    
+    with col2:
+        if st.button("🔄 Refresh", use_container_width=True):
+            st.cache_data.clear()
+            st.rerun()
+    
     # Add loading state
     with st.spinner("Loading prompts..."):
         df = pd.DataFrame(prompts)
-        latest_prompts = df.loc[df.groupby('lineage_id')['version'].idxmax()].sort_values('created_at', ascending=False)
+        
+        if show_all_versions:
+            # Show all prompts sorted by creation date
+            display_prompts = df.sort_values('created_at', ascending=False)
+            st.info(f"Showing all {len(display_prompts)} prompt versions")
+        else:
+            # Show only latest version of each lineage
+            display_prompts = df.loc[df.groupby('lineage_id')['version'].idxmax()].sort_values('created_at', ascending=False)
+            st.info(f"Showing latest version of {len(display_prompts)} prompt lineages")
     
     # Show loading progress
     progress_bar = st.progress(0)
     status_text = st.empty()
     
-    for idx, (_, row) in enumerate(latest_prompts.iterrows()):
+    for idx, (_, row) in enumerate(display_prompts.iterrows()):
         # Update progress
-        progress = (idx + 1) / len(latest_prompts)
+        progress = (idx + 1) / len(display_prompts)
         progress_bar.progress(progress)
-        status_text.text(f"Loading prompt {idx + 1} of {len(latest_prompts)}")
+        status_text.text(f"Loading prompt {idx + 1} of {len(display_prompts)}")
         
         # Use custom container styling
         st.markdown('<div class="prompt-container">', unsafe_allow_html=True)
@@ -498,8 +517,22 @@ def main_manager_view(prompts):
             st.session_state.newly_generated_prompt['prompt_data'].get('id') == row['id']
         )
         
+        # Check for training examples
+        examples = st.session_state.db.get_examples(row['id'])
+        training_count = len(examples) if examples else 0
+        has_training_data = training_count > 0
+        
+        # Show training data status
+        training_status = ""
+        if has_training_data:
+            training_status = f" 📊 {training_count} training examples"
+            if training_count >= 3:
+                training_status += " ✨ Ready for DSPy!"
+        else:
+            training_status = " 📊 No training examples"
+        
         if is_newly_generated:
-            st.markdown(f"#### 🆕 {row.get('task', 'Untitled')} (v{row.get('version', 1)}) - **Just Created!**")
+            st.markdown(f"#### 🆕 {row.get('task', 'Untitled')} (v{row.get('version', 1)}) - **Just Created!**{training_status}")
             st.success("✨ This is a newly generated prompt! It's currently being tested.")
             
             # Show generation process for newly created prompts
@@ -512,15 +545,14 @@ def main_manager_view(prompts):
                 st.session_state.improving_prompt_id = row['id']
                 st.rerun()
         elif is_latest_improvement:
-            st.markdown(f"#### 🆕 {row.get('task', 'Untitled')} (v{row.get('version', 1)}) - **Just Improved!**")
+            st.markdown(f"#### 🆕 {row.get('task', 'Untitled')} (v{row.get('version', 1)}) - **Just Improved!**{training_status}")
             st.success("✨ This prompt was just improved! Check the improvement results above.")
         else:
-            st.markdown(f"#### {row.get('task', 'Untitled')} (v{row.get('version', 1)})")
+            st.markdown(f"#### {row.get('task', 'Untitled')} (v{row.get('version', 1)}){training_status}")
         
         st.code(row['prompt'], language='text')
         
         # Check for training data to enable/disable optimize button
-        has_training_data = False
         if row.get('training_data'):
             try:
                 # Handle both string (JSON) and list formats

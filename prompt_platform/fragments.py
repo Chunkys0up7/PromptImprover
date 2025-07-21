@@ -242,6 +242,7 @@ def performance_metrics_fragment():
 @st.fragment
 def settings_fragment():
     """Fragment for settings configuration"""
+    import os  # Ensure os is always available in this scope
     st.subheader("⚙️ Settings")
     
     # GitHub Integration Settings

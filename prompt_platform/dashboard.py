@@ -264,15 +264,15 @@ def render_quick_actions():
     
     with col1:
         if st.button("🚀 Create New Prompt", use_container_width=True):
-            st.switch_page("Generate")
+            st.info("Navigate to the 'Generate' tab to create a new prompt")
     
     with col2:
         if st.button("📋 Manage Prompts", use_container_width=True):
-            st.switch_page("Manage")
+            st.info("Navigate to the 'Manage' tab to manage your prompts")
     
     with col3:
         if st.button("⚙️ Settings", use_container_width=True):
-            st.switch_page("Settings")
+            st.info("Navigate to the 'Settings' tab to configure your settings")
 
 def render_dashboard():
     """Renders the enhanced dashboard."""

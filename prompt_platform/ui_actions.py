@@ -47,7 +47,13 @@ def handle_save_example(prompt_id: int, input_text: str, output_text: str, criti
             st.warning("Input and output fields cannot be empty.")
             return
 
-        st.session_state.db.add_example(prompt_id, input_text, output_text, critique)
+        example_data = {
+            'prompt_id': prompt_id,
+            'input_text': input_text,
+            'output_text': output_text,
+            'critique': critique
+        }
+        st.session_state.db.add_example(example_data)
         
         # Check if we have enough examples to trigger improvement
         examples = st.session_state.db.get_examples(prompt_id)
