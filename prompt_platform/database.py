@@ -130,8 +130,8 @@ class PromptDB:
         finally:
             session.close()
     
-    def save_prompt(self, prompt_data: Dict[str, Any]) -> bool:
-        """Save prompt with comprehensive validation"""
+    def save_prompt(self, prompt_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Save prompt with comprehensive validation and return saved data"""
         try:
             # Validate prompt data using our schema
             validated_data = validate_prompt_data(prompt_data)
@@ -146,17 +146,18 @@ class PromptDB:
                         if key != 'id':  # Don't update the ID
                             setattr(existing, key, value)
                     logger.info(f"Updated existing prompt: {validated_data.id}")
+                    return existing.to_dict()
                 else:
                     # Create new prompt
                     prompt = Prompt(**validated_data.dict())
                     session.add(prompt)
+                    session.flush()  # Ensure the ID is generated
                     logger.info(f"Created new prompt: {validated_data.id}")
-                
-                return True
+                    return prompt.to_dict()
                 
         except Exception as e:
             logger.error(f"Failed to save prompt: {e}")
-            return False
+            return None
     
     def get_prompt(self, prompt_id: str) -> Optional[Dict[str, Any]]:
         """Get prompt by ID with validation"""
@@ -362,14 +363,16 @@ class PromptDB:
                 # Get prompts with the most versions in their lineage
                 subquery = session.query(
                     Prompt.lineage_id,
-                    func.count(Prompt.id).label('version_count')
+                    func.count(Prompt.id).label('version_count'),
+                    func.max(Prompt.version).label('latest_version')
                 ).group_by(Prompt.lineage_id).subquery()
                 
                 top_lineages = session.query(
                     Prompt.lineage_id,
                     Prompt.task,
                     Prompt.created_at,
-                    subquery.c.version_count
+                    subquery.c.version_count,
+                    subquery.c.latest_version
                 ).join(
                     subquery, Prompt.lineage_id == subquery.c.lineage_id
                 ).order_by(
@@ -381,7 +384,8 @@ class PromptDB:
                         'lineage_id': lineage.lineage_id,
                         'task': lineage.task,
                         'created_at': lineage.created_at,
-                        'version_count': lineage.version_count
+                        'version_count': lineage.version_count,
+                        'latest_version': lineage.latest_version
                     }
                     for lineage in top_lineages
                 ]
