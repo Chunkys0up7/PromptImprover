@@ -7,6 +7,7 @@ allowing independent component updates without full app reruns.
 import streamlit as st
 from typing import List, Dict, Any, Optional
 import logging
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -251,7 +252,31 @@ def settings_fragment():
     # GitHub Configuration Section
     st.subheader("🔗 GitHub Integration")
     
-    if not github_integration.is_enabled():
+    # Check if GitHub is already configured via environment variables
+    github_enabled = os.getenv("GITHUB_ENABLED", "false").lower() == "true"
+    github_token = os.getenv("GITHUB_TOKEN")
+    github_owner = os.getenv("GITHUB_OWNER")
+    github_repo = os.getenv("GITHUB_REPO")
+    
+    if github_enabled and github_token and github_owner and github_repo:
+        st.success(f"✅ GitHub integration is already configured for {github_owner}/{github_repo}")
+        
+        with st.expander("🔧 GitHub Configuration Details", expanded=False):
+            st.info(f"**Repository:** {github_owner}/{github_repo}")
+            st.info(f"**Token:** {'*' * 10}{github_token[-4:] if github_token else ''}")
+            st.info("**Status:** Configured via .env file")
+            
+            if st.button("🔄 Test GitHub Connection"):
+                try:
+                    # Test the connection
+                    from github import Github
+                    g = Github(github_token)
+                    user = g.get_user()
+                    st.success(f"✅ Connected as {user.login}")
+                except Exception as e:
+                    st.error(f"❌ Connection failed: {e}")
+    
+    elif not github_integration.is_enabled():
         st.info("🔗 GitHub integration is currently disabled. Configure it below to enable.")
         
         with st.expander("🔧 Configure GitHub Integration", expanded=True):

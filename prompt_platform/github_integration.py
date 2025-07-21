@@ -60,8 +60,20 @@ class GitHubIntegration:
                  auth_token: str = None, branch: str = "main"):
         """Initialize GitHub integration"""
         self.repo_path = repo_path or os.path.join(os.getcwd(), "prompt_repo")
-        self.remote_url = remote_url or os.getenv("GITHUB_REPO_URL")
+        
+        # Check for GitHub configuration in environment variables
         self.auth_token = auth_token or os.getenv("GITHUB_TOKEN")
+        
+        # Build remote URL from owner and repo if not provided
+        if remote_url:
+            self.remote_url = remote_url
+        elif os.getenv("GITHUB_REPO_URL"):
+            self.remote_url = os.getenv("GITHUB_REPO_URL")
+        elif os.getenv("GITHUB_OWNER") and os.getenv("GITHUB_REPO"):
+            self.remote_url = f"https://github.com/{os.getenv('GITHUB_OWNER')}/{os.getenv('GITHUB_REPO')}.git"
+        else:
+            self.remote_url = None
+            
         self.branch = branch
         self.error_handler = ErrorHandler()
         
