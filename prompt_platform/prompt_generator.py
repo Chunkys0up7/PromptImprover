@@ -158,7 +158,12 @@ Provide your response in this format:
                 raise ValueError(f"Prompt with ID {prompt_id} not found")
             
             original_prompt = original_prompt_data['prompt']
-            task_desc = task_description.get('task', 'Improve the prompt')
+            
+            # Handle both string and dict task_description for backward compatibility
+            if isinstance(task_description, str):
+                task_desc = task_description
+            else:
+                task_desc = task_description.get('task', 'Improve the prompt')
             
             # Get training examples from the Example table instead of training_data JSON
             examples = db.get_examples(prompt_id)

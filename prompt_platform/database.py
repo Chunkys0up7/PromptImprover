@@ -262,34 +262,81 @@ class PromptDB:
     # --- Dashboard Aggregation Methods ---
     
     def get_performance_stats(self) -> Dict[str, Any]:
-        """Get comprehensive performance statistics"""
+        """Get overall performance statistics"""
         try:
             with self.session_scope() as session:
-                # Total counts
-                total_prompts = session.query(func.count(Prompt.id)).scalar()
-                total_examples = session.query(func.count(Example.id)).scalar()
-                total_lineages = session.query(func.count(func.distinct(Prompt.lineage_id))).scalar()
+                # Get basic counts
+                total_prompts = session.query(Prompt).count()
+                total_examples = session.query(Example).count()
+                total_lineages = session.query(Prompt.lineage_id).distinct().count()
                 
-                # Average versions per lineage
-                avg_versions = session.query(
-                    func.avg(func.count(Prompt.id))
-                ).group_by(Prompt.lineage_id).scalar() or 0
+                # Get average examples per prompt
+                avg_examples = session.query(func.avg(func.count(Example.id))).select_from(Example).group_by(Example.prompt_id).scalar() or 0
+                
+                # Get recent activity (last 7 days)
+                week_ago = datetime.utcnow() - timedelta(days=7)
+                recent_prompts = session.query(Prompt).filter(Prompt.created_at >= week_ago.timestamp()).count()
+                recent_examples = session.query(Example).filter(Example.created_at >= week_ago).count()
                 
                 return {
                     'total_prompts': total_prompts,
                     'total_examples': total_examples,
                     'total_lineages': total_lineages,
-                    'avg_versions_per_lineage': float(avg_versions)
+                    'avg_examples_per_prompt': round(float(avg_examples), 2),
+                    'recent_prompts': recent_prompts,
+                    'recent_examples': recent_examples
                 }
-                
         except Exception as e:
             logger.error(f"Failed to get performance stats: {e}")
             return {
                 'total_prompts': 0,
                 'total_examples': 0,
                 'total_lineages': 0,
-                'avg_versions_per_lineage': 0.0
+                'avg_examples_per_prompt': 0,
+                'recent_prompts': 0,
+                'recent_examples': 0
             }
+    
+    def get_prompt_performance_stats(self, prompt_id: str) -> Dict[str, Any]:
+        """Get performance statistics for a specific prompt"""
+        try:
+            with self.session_scope() as session:
+                # Get prompt details
+                prompt = session.query(Prompt).filter(Prompt.id == prompt_id).first()
+                if not prompt:
+                    return {}
+                
+                # Get examples for this prompt
+                examples = session.query(Example).filter(Example.prompt_id == prompt_id).all()
+                
+                # Get lineage information
+                lineage_prompts = session.query(Prompt).filter(Prompt.lineage_id == prompt.lineage_id).all()
+                
+                # Calculate statistics
+                total_examples = len(examples)
+                avg_example_length = sum(len(ex.output_text) for ex in examples) / total_examples if total_examples > 0 else 0
+                
+                # Get recent examples (last 7 days)
+                week_ago = datetime.utcnow() - timedelta(days=7)
+                recent_examples = session.query(Example).filter(
+                    Example.prompt_id == prompt_id,
+                    Example.created_at >= week_ago
+                ).count()
+                
+                return {
+                    'prompt_id': prompt_id,
+                    'lineage_id': prompt.lineage_id,
+                    'version': prompt.version,
+                    'total_examples': total_examples,
+                    'avg_example_length': round(avg_example_length, 2),
+                    'recent_examples': recent_examples,
+                    'lineage_size': len(lineage_prompts),
+                    'created_at': prompt.created_at,
+                    'improvement_request': prompt.improvement_request
+                }
+        except Exception as e:
+            logger.error(f"Failed to get prompt performance stats for {prompt_id}: {e}")
+            return {}
     
     def get_recent_prompts(self, limit: int = 10) -> List[Dict[str, Any]]:
         """Get recent prompts for dashboard"""
