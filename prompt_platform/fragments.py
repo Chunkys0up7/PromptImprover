@@ -356,7 +356,6 @@ DEFAULT_MODEL={os.getenv('DEFAULT_MODEL', 'sonar-pro')}
     # LLM Provider Settings
     st.subheader("🤖 LLM Provider Configuration")
     
-    import os
     current_provider = os.getenv('LLM_PROVIDER', 'perplexity')
     
     with st.expander("🔄 Switch LLM Provider", expanded=False):
