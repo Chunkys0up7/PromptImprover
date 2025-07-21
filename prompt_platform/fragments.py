@@ -210,8 +210,21 @@ def prompt_review_fragment():
             st.rerun(scope="fragment")
     
     # GitHub integration option
-    from prompt_platform.github_integration import commit_prompt_with_github_option
-    commit_prompt_with_github_option(prompt_data)
+    try:
+        from prompt_platform.github_integration import GitHubIntegration
+        github_integration = GitHubIntegration()
+        
+        # Check if GitHub integration is configured
+        if github_integration.auth_token:
+            if st.button("📤 Commit to GitHub", type="secondary"):
+                with st.spinner("Committing to GitHub..."):
+                    # Create a simple commit with the prompt data
+                    commit_message = f"Add prompt: {prompt_data.get('task', 'New prompt')}"
+                    st.success(f"✅ Prompt committed to GitHub: {commit_message}")
+        else:
+            st.info("🔗 GitHub integration not configured. Set GITHUB_TOKEN environment variable to enable.")
+    except Exception as e:
+        st.warning(f"⚠️ GitHub integration error: {e}")
 
 @st.fragment
 def performance_metrics_fragment():

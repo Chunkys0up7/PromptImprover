@@ -25,7 +25,6 @@ from prompt_platform.dashboard import render_dashboard
 from prompt_platform.ui_actions import display_improvement_results, generate_and_save_prompt
 from prompt_platform.sanitizers import sanitize_text
 from prompt_platform.utils import run_async
-from prompt_platform.github_integration import commit_prompt_with_github_option
 
 # Import new architecture components
 from prompt_platform.state_manager import PromptPlatformState

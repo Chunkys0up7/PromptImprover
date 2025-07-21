@@ -634,4 +634,40 @@ class GitHubIntegration:
             
         except Exception as e:
             logger.error(f"Failed to restore from GitHub: {e}")
-            return [], [] 
+            return [], []
+    
+    # --- UI Methods for Streamlit Integration ---
+    
+    def get_github_settings_ui(self) -> Dict[str, Any]:
+        """Get GitHub settings UI configuration"""
+        return {
+            "enabled": self.is_enabled(),
+            "configured": self.is_configured(),
+            "repo_info": self.get_repository_info() if self.is_configured() else None
+        }
+    
+    def is_enabled(self) -> bool:
+        """Check if GitHub integration is enabled"""
+        return bool(self.auth_token and self.remote_url)
+    
+    def is_configured(self) -> bool:
+        """Check if GitHub integration is properly configured"""
+        return bool(self.auth_token and self.remote_url and os.path.exists(self.repo_path))
+    
+    def get_repository_info(self) -> Dict[str, str]:
+        """Get repository information"""
+        try:
+            if self.remote_url:
+                # Extract owner and repo from URL
+                if "github.com" in self.remote_url:
+                    parts = self.remote_url.split("github.com/")[-1].replace(".git", "").split("/")
+                    if len(parts) >= 2:
+                        return {
+                            "owner": parts[0],
+                            "repo": parts[1],
+                            "url": self.remote_url
+                        }
+            return {"owner": "unknown", "repo": "unknown", "url": self.remote_url or ""}
+        except Exception as e:
+            logger.error(f"Failed to get repository info: {e}")
+            return {"owner": "error", "repo": "error", "url": ""} 
